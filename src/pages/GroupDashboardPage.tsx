@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, Trophy, ArrowRightLeft, Users, Settings, ChevronRight, Crown } from 'lucide-react';
+import { Calendar, Trophy, ArrowRightLeft, Users, Settings, ChevronRight, Crown, Info, ChevronDown } from 'lucide-react';
 import { useStore } from '../store';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getTeamByName } from '../utils/ipl';
+import { getTeamByName, calculatePayouts } from '../utils/ipl';
 import { getAvatarColor, getInitial } from '../utils/avatarColor';
 import { calculateBalances } from '../utils/balance';
 import { formatAmount } from '../utils/currency';
@@ -60,6 +60,7 @@ export function GroupDashboardPage() {
   }, [group.members, balances]);
 
   const isAdmin = group.members.find((m) => m.id === currentUser.id)?.isAdmin;
+  const [showRules, setShowRules] = useState(false);
 
   const navItems = [
     { label: 'All Matches', icon: Calendar, path: `/group/${id}/matches` },
@@ -270,6 +271,78 @@ export function GroupDashboardPage() {
             </div>
           </section>
         )}
+
+        {/* League Rules */}
+        <section className="mb-6">
+          <button
+            onClick={() => setShowRules(!showRules)}
+            className="w-full flex items-center gap-3 bg-primary-container/30 rounded-2xl px-4 py-3.5 text-left active:scale-[0.98] transition-transform"
+          >
+            <div className="w-9 h-9 rounded-xl bg-primary-container/60 flex items-center justify-center shrink-0">
+              <Info className="text-primary" size={18} strokeWidth={1.8} />
+            </div>
+            <span className="flex-1 font-semibold text-sm text-on-surface">League Rules</span>
+            <ChevronDown
+              size={18}
+              className={`text-on-surface-variant transition-transform ${showRules ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {showRules && (
+            <div className="bg-white rounded-2xl card-shadow p-5 mt-2 animate-fade-in">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-label text-on-surface-variant mb-2">ENTRY FEE</p>
+                  <p className="text-sm text-on-surface">
+                    Every member pays <span className="font-bold">₹{group.entryAmount}</span> per match — whether you play on Dream11 or not. Once you've joined, you're in for all matches.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-label text-on-surface-variant mb-2">HOW TO PLAY</p>
+                  <p className="text-sm text-on-surface">
+                    Play each IPL match on Dream11. After the match, the admin enters everyone's Dream11 ranking in this app.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-label text-on-surface-variant mb-2">WINNINGS</p>
+                  <p className="text-sm text-on-surface mb-2">
+                    Total pool = {group.members.length} members × ₹{group.entryAmount} = <span className="font-bold">₹{group.members.length * group.entryAmount}</span> per match
+                  </p>
+                  {(() => {
+                    const payouts = calculatePayouts(group.members.length, group.entryAmount);
+                    return (
+                      <div className="bg-surface-dim/30 rounded-xl p-3 space-y-1">
+                        {payouts.map((payout, i) => {
+                          const net = payout - group.entryAmount;
+                          if (i >= group.members.length) return null;
+                          return (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <span className="text-on-surface-variant">
+                                {i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `${i + 1}th`} place
+                              </span>
+                              <span className={`font-semibold ${net > 0 ? 'text-owed' : net < 0 ? 'text-owe' : 'text-on-surface-variant'}`}>
+                                {net > 0 ? '+' : ''}{net === 0 ? 'Break even' : `₹${net}`}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div>
+                  <p className="text-label text-on-surface-variant mb-2">SETTLEMENTS</p>
+                  <p className="text-sm text-on-surface">
+                    The app tracks running balances across all matches. Check the Settlements page anytime to see who owes whom and settle up.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Navigation */}
         <section className="mt-2">

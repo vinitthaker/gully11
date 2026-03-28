@@ -177,9 +177,16 @@ export function HomePage() {
                   onKeyDown={(e) => { if (e.key === 'Enter') handleCreateGroup(); }}
                 />
 
-                <p className="text-xs text-on-surface-variant/60">
-                  You can share an invite link after creating the league
-                </p>
+                {/* Rules summary */}
+                <div className="bg-primary-container/30 rounded-2xl p-4">
+                  <p className="text-label text-on-primary-container mb-2">HOW IT WORKS</p>
+                  <ul className="space-y-1.5 text-xs text-on-surface-variant leading-relaxed">
+                    <li className="flex gap-2"><span className="shrink-0">1.</span>Every member pays ₹{entryAmount || '100'} per match — whether you play or not</li>
+                    <li className="flex gap-2"><span className="shrink-0">2.</span>Play on Dream11 and the admin enters rankings after each match</li>
+                    <li className="flex gap-2"><span className="shrink-0">3.</span>Top rankers win from the pool, bottom rankers lose their entry</li>
+                    <li className="flex gap-2"><span className="shrink-0">4.</span>Settle balances at any time via the Settlements page</li>
+                  </ul>
+                </div>
 
                 <div className="flex gap-3 pt-2">
                   <Button
