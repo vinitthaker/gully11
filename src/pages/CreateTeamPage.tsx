@@ -13,10 +13,10 @@ type Step = 'select' | 'captain' | 'preview';
 const ROLES: PlayerRole[] = ['WK', 'BAT', 'AR', 'BOWL'];
 const ROLE_LABELS: Record<PlayerRole, string> = { WK: 'WK', BAT: 'BAT', AR: 'AR', BOWL: 'BOWL' };
 const ROLE_CONSTRAINTS: Record<PlayerRole, { min: number; max: number }> = {
-  WK: { min: 1, max: 4 },
-  BAT: { min: 3, max: 6 },
-  AR: { min: 1, max: 4 },
-  BOWL: { min: 3, max: 6 },
+  WK: { min: 1, max: 8 },
+  BAT: { min: 1, max: 8 },
+  AR: { min: 1, max: 8 },
+  BOWL: { min: 1, max: 8 },
 };
 const TOTAL_PLAYERS = 11;
 const TOTAL_BUDGET = 100;
