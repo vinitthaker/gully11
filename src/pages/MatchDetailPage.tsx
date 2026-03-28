@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
-import { Trophy } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Trophy, Users, Pencil, Clock } from 'lucide-react';
 import { useStore } from '../store';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
@@ -9,11 +9,13 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { getTeamByName, calculatePayouts } from '../utils/ipl';
 import { getAvatarColor, getInitial } from '../utils/avatarColor';
 import { formatAmount } from '../utils/currency';
+import { IPL_PLAYERS } from '../utils/players';
 
 export function MatchDetailPage() {
   const { id: groupId, matchId: matchIdStr } = useParams<{ id: string; matchId: string }>();
   const matchId = Number(matchIdStr);
-  const { groups, iplSchedule, matchResults, currentUser, submitResults } = useStore();
+  const navigate = useNavigate();
+  const { groups, iplSchedule, matchResults, currentUser, submitResults, getFantasyTeam } = useStore();
 
   const group = groups.find((g) => g.id === groupId);
   const match = iplSchedule.find((m) => m.id === matchId);
@@ -29,6 +31,7 @@ export function MatchDetailPage() {
 
   const hasResults = existingResults.length > 0;
   const isAdmin = group?.members.find((m) => m.id === currentUser.id)?.isAdmin;
+  const existingFantasyTeam = groupId ? getFantasyTeam(groupId, matchId) : undefined;
 
   if (!group || !match) {
     return (
@@ -224,10 +227,120 @@ export function MatchDetailPage() {
           </>
         ) : (
           <>
+            {/* Fantasy team button + countdown */}
+            <DeadlineSection
+              matchDate={match.matchDate}
+              hasTeam={!!existingFantasyTeam}
+              onCreateTeam={() => navigate(`/group/${groupId}/match/${matchId}/create-team`)}
+            />
+
+            {/* Inline team preview — split by team */}
+            {existingFantasyTeam && (() => {
+              const homeTeam = getTeamByName(match.teamHome);
+              const awayTeam = getTeamByName(match.teamAway);
+              const homeCode = homeTeam?.code ?? match.teamHome.slice(0, 3).toUpperCase();
+              const awayCode = awayTeam?.code ?? match.teamAway.slice(0, 3).toUpperCase();
+
+              const picks = existingFantasyTeam.players.map((pick) => {
+                const player = IPL_PLAYERS.find((p) => p.id === pick.playerId);
+                return player ? { ...player, pickRole: pick.role } : null;
+              }).filter(Boolean) as (typeof IPL_PLAYERS[0] & { pickRole: string })[];
+
+              const homePicks = picks.filter((p) => p.team === homeCode);
+              const awayPicks = picks.filter((p) => p.team === awayCode);
+              const totalCredits = picks.reduce((s, p) => s + p.credits, 0);
+
+              const roleOrder = ['WK', 'BAT', 'AR', 'BOWL'];
+              const sortByRole = (a: typeof picks[0], b: typeof picks[0]) =>
+                roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role);
+
+              homePicks.sort(sortByRole);
+              awayPicks.sort(sortByRole);
+
+              const renderPlayer = (player: typeof picks[0]) => {
+                const isCaptain = existingFantasyTeam.captainId === player.id;
+                const isVC = existingFantasyTeam.viceCaptainId === player.id;
+                return (
+                  <div key={player.id} className="flex items-center gap-1.5 py-[5px]">
+                    {/* Role badge */}
+                    <span className="text-[9px] font-bold text-on-surface-variant/50 w-6 shrink-0">{player.role}</span>
+                    {/* Name */}
+                    <span className="text-[13px] text-on-surface flex-1 truncate font-medium">
+                      {player.name.split(' ').pop()}
+                    </span>
+                    {/* Credits */}
+                    <span className="text-[10px] text-on-surface-variant shrink-0">{player.credits}</span>
+                    {/* C/VC badge */}
+                    {isCaptain && (
+                      <span className="text-[8px] font-bold text-white bg-primary rounded-full w-[18px] h-[18px] flex items-center justify-center shrink-0">C</span>
+                    )}
+                    {isVC && (
+                      <span className="text-[8px] font-bold text-white bg-on-surface-variant rounded-full w-[18px] h-[18px] flex items-center justify-center shrink-0">V</span>
+                    )}
+                    {!isCaptain && !isVC && <span className="w-[18px] shrink-0" />}
+                  </div>
+                );
+              };
+
+              const deadline = match.matchDate - 30 * 60 * 1000;
+              const canEdit = Date.now() <= deadline;
+
+              return (
+                <div className="mb-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-label text-on-surface-variant">YOUR TEAM · {totalCredits}/100 cr</p>
+                    {canEdit && (
+                      <button
+                        onClick={() => navigate(`/group/${groupId}/match/${matchId}/create-team`)}
+                        className="flex items-center gap-1 text-xs font-semibold text-primary"
+                      >
+                        <Pencil size={12} /> Edit
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Two-column split */}
+                  <div className="flex gap-2">
+                    {/* Home team column */}
+                    <div className="flex-1 bg-white rounded-2xl card-shadow p-3 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-surface-dim">
+                        <div
+                          className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold shrink-0"
+                          style={{ backgroundColor: homeTeam?.color ?? '#666', color: homeTeam?.textColor ?? '#fff' }}
+                        >
+                          {homeCode.slice(0, 2)}
+                        </div>
+                        <span className="text-xs font-bold text-on-surface">{homeCode}</span>
+                        <span className="text-[10px] text-on-surface-variant ml-auto">{homePicks.length}</span>
+                      </div>
+                      {homePicks.map(renderPlayer)}
+                    </div>
+
+                    {/* Away team column */}
+                    <div className="flex-1 bg-white rounded-2xl card-shadow p-3 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-surface-dim">
+                        <div
+                          className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold shrink-0"
+                          style={{ backgroundColor: awayTeam?.color ?? '#666', color: awayTeam?.textColor ?? '#fff' }}
+                        >
+                          {awayCode.slice(0, 2)}
+                        </div>
+                        <span className="text-xs font-bold text-on-surface">{awayCode}</span>
+                        <span className="text-[10px] text-on-surface-variant ml-auto">{awayPicks.length}</span>
+                      </div>
+                      {awayPicks.map(renderPlayer)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {isAdmin && (
               <Button
                 onClick={() => setShowEnterResults(true)}
                 fullWidth
+                variant="secondary"
                 icon={<Trophy size={18} />}
               >
                 Enter Results
@@ -354,6 +467,90 @@ export function MatchDetailPage() {
               </div>
             </div>
           </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─── Countdown + deadline section ─── */
+function DeadlineSection({
+  matchDate,
+  hasTeam,
+  onCreateTeam,
+}: {
+  matchDate: number;
+  hasTeam: boolean;
+  onCreateTeam: () => void;
+}) {
+  const deadline = matchDate - 30 * 60 * 1000;
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isLocked = now > deadline;
+  const remaining = deadline - now;
+  const deadlineStr = new Date(deadline).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+  // Format countdown
+  const formatCountdown = (ms: number) => {
+    if (ms <= 0) return '0:00:00';
+    const totalSec = Math.floor(ms / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const minutes = Math.floor((totalSec % 3600) / 60);
+    const seconds = totalSec % 60;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+
+    if (days > 0) return `${days}d ${hours}h ${pad(minutes)}m`;
+    if (hours > 0) return `${hours}h ${pad(minutes)}m ${pad(seconds)}s`;
+    return `${minutes}m ${pad(seconds)}s`;
+  };
+
+  const isUrgent = remaining > 0 && remaining < 60 * 60 * 1000; // less than 1 hour
+
+  return (
+    <div className="mb-4">
+      {isLocked ? (
+        <div className="text-center">
+          {hasTeam ? (
+            <div className="bg-green-50 rounded-2xl p-4 mb-2">
+              <p className="text-sm font-semibold text-owed">Team submitted</p>
+              <p className="text-xs text-on-surface-variant mt-1">Locked at {deadlineStr}</p>
+            </div>
+          ) : (
+            <div className="bg-owe-container rounded-2xl p-4 mb-2">
+              <p className="text-sm font-semibold text-owe">Team creation closed</p>
+              <p className="text-xs text-on-surface-variant mt-1">Deadline was {deadlineStr}</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Countdown timer */}
+          <div className={`rounded-2xl p-3 mb-3 flex items-center justify-center gap-2 ${
+            isUrgent ? 'bg-owe-container' : 'bg-primary-container/30'
+          }`}>
+            <Clock size={14} className={isUrgent ? 'text-owe' : 'text-primary'} />
+            <span className={`text-xs font-medium ${isUrgent ? 'text-owe' : 'text-on-surface-variant'}`}>
+              Team locks in
+            </span>
+            <span className={`font-headline font-bold text-sm ${isUrgent ? 'text-owe' : 'text-primary'}`}>
+              {formatCountdown(remaining)}
+            </span>
+          </div>
+
+          <Button
+            onClick={onCreateTeam}
+            fullWidth
+            variant={hasTeam ? 'secondary' : 'primary'}
+            icon={<Users size={18} />}
+          >
+            {hasTeam ? 'View / Edit Team' : 'Create Fantasy Team'}
+          </Button>
         </>
       )}
     </div>

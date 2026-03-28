@@ -14,6 +14,7 @@ import { MembersPage } from './pages/MembersPage';
 import { GroupSettingsPage } from './pages/GroupSettingsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { JoinGroupPage } from './pages/JoinGroupPage';
+import { CreateTeamPage } from './pages/CreateTeamPage';
 
 function AuthListener() {
   const setAuthUser = useStore((s) => s.setAuthUser);
@@ -81,6 +82,7 @@ function AppRoutes() {
       <Route path="/group/:id/members" element={<AppShell><MembersPage /></AppShell>} />
       <Route path="/group/:id/settings" element={<AppShell><GroupSettingsPage /></AppShell>} />
       <Route path="/settings" element={<AppShell><SettingsPage /></AppShell>} />
+      <Route path="/group/:id/match/:matchId/create-team" element={<CreateTeamPage />} />
       <Route path="/g/:inviteCode" element={<JoinGroupPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

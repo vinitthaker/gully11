@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
-import type { User, Group, IPLMatch, MatchResult, Transaction } from '../types';
+import type { User, Group, IPLMatch, MatchResult, Transaction, FantasyTeam } from '../types';
 import * as db from '../lib/db';
 import { generateId } from '../utils/id';
 
@@ -14,6 +14,9 @@ interface AppState {
   currentUser: User;
   groups: Group[];
   hasOnboarded: boolean;
+
+  // Fantasy teams (persisted to localStorage)
+  fantasyTeams: FantasyTeam[];
 
   // Cloud-only (not persisted)
   iplSchedule: IPLMatch[];
@@ -39,6 +42,11 @@ interface AppState {
     rankings: { userId: string; rank: number; payout: number; netAmount: number }[]
   ) => Promise<void>;
 
+  // Fantasy team actions
+  saveFantasyTeam: (team: FantasyTeam) => void;
+  getFantasyTeam: (groupId: string, matchId: number) => FantasyTeam | undefined;
+  getFantasyTeamsByMatch: (groupId: string, matchId: number) => FantasyTeam[];
+
   // Sync
   fetchIPLSchedule: () => Promise<void>;
   fetchFromSupabase: () => Promise<void>;
@@ -55,6 +63,9 @@ export const useStore = create<AppState>()(
       currentUser: { id: 'user-me', name: '' },
       groups: [],
       hasOnboarded: false,
+
+      // Fantasy teams
+      fantasyTeams: [],
 
       // Cloud-only
       iplSchedule: [],
@@ -181,6 +192,36 @@ export const useStore = create<AppState>()(
         }));
       },
 
+      saveFantasyTeam: (team) => {
+        set((s) => {
+          // Replace existing team for same group+match+user, or add new
+          const exists = s.fantasyTeams.findIndex(
+            (t) => t.groupId === team.groupId && t.matchId === team.matchId && t.userId === team.userId
+          );
+          if (exists >= 0) {
+            const updated = [...s.fantasyTeams];
+            updated[exists] = team;
+            return { fantasyTeams: updated };
+          }
+          return { fantasyTeams: [...s.fantasyTeams, team] };
+        });
+      },
+
+      getFantasyTeam: (groupId, matchId) => {
+        const state = get();
+        const userId = state.currentUser.id;
+        return state.fantasyTeams.find(
+          (t) => t.groupId === groupId && t.matchId === matchId && t.userId === userId
+        );
+      },
+
+      getFantasyTeamsByMatch: (groupId, matchId) => {
+        const state = get();
+        return state.fantasyTeams.filter(
+          (t) => t.groupId === groupId && t.matchId === matchId
+        );
+      },
+
       fetchIPLSchedule: async () => {
         try {
           const schedule = await db.fetchIPLSchedule();
@@ -200,11 +241,12 @@ export const useStore = create<AppState>()(
             db.fetchIPLSchedule(),
           ]);
 
-          // Fetch results & transactions for all groups
+          // Fetch results, transactions & fantasy teams for all groups
           const groupIds = groups.map((g) => g.id);
-          const [allResults, allTxs] = await Promise.all([
+          const [allResults, allTxs, allFantasyTeams] = await Promise.all([
             Promise.all(groupIds.map((id) => db.fetchGroupResults(id))),
             Promise.all(groupIds.map((id) => db.fetchGroupTransactions(id))),
+            Promise.all(groupIds.map((id) => db.fetchFantasyTeams(id))),
           ]);
 
           set({
@@ -212,6 +254,7 @@ export const useStore = create<AppState>()(
             iplSchedule: schedule,
             matchResults: allResults.flat(),
             transactions: allTxs.flat(),
+            fantasyTeams: allFantasyTeams.flat(),
             currentUser: {
               id: state.authUser.id,
               name:
@@ -233,6 +276,7 @@ export const useStore = create<AppState>()(
         currentUser: state.currentUser,
         groups: state.groups,
         hasOnboarded: state.hasOnboarded,
+        fantasyTeams: state.fantasyTeams,
       }),
     }
   )

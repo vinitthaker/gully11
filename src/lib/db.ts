@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
-import type { IPLMatch, Group, MatchResult, Transaction } from '../types';
+import type { IPLMatch, Group, MatchResult, Transaction, FantasyTeam, FantasyPick, PlayerMatchStats, PointRule } from '../types';
 import { generateId } from '../utils/id';
+import type { Player } from '../utils/players';
 
 // ─── IPL Schedule ───────────────────────────────────────────────
 
@@ -269,6 +270,234 @@ export async function fetchGroupTransactions(groupId: string): Promise<Transacti
     userId: t.user_id,
     amount: Number(t.amount),
     createdAt: new Date(t.created_at).getTime(),
+  }));
+}
+
+// ─── Players (from DB) ──────────────────────────────────────────
+
+export async function fetchPlayers(teamCodes?: string[]): Promise<Player[]> {
+  let query = supabase.from('gully11_players').select('*');
+  if (teamCodes && teamCodes.length > 0) {
+    query = query.in('team', teamCodes);
+  }
+  const { data, error } = await query.order('team').order('role');
+  if (error) throw error;
+
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    team: p.team,
+    role: p.role as Player['role'],
+    credits: Number(p.credits ?? 7.0),
+  }));
+}
+
+// ─── Fantasy Teams ──────────────────────────────────────────────
+
+export async function saveFantasyTeam(
+  groupId: string,
+  matchId: number,
+  userId: string,
+  players: FantasyPick[],
+  captainId: string,
+  viceCaptainId: string,
+  existingTeamId?: string
+): Promise<FantasyTeam> {
+  // If editing, delete old team players first
+  if (existingTeamId) {
+    await supabase
+      .from('gully11_fantasy_team_players')
+      .delete()
+      .eq('team_id', existingTeamId);
+
+    // Update the team
+    const { error: uErr } = await supabase
+      .from('gully11_fantasy_teams')
+      .update({
+        captain_id: captainId,
+        vice_captain_id: viceCaptainId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingTeamId);
+
+    if (uErr) throw uErr;
+
+    // Insert new players
+    const { error: pErr } = await supabase
+      .from('gully11_fantasy_team_players')
+      .insert(players.map((p) => ({
+        team_id: existingTeamId,
+        player_id: p.playerId,
+        role: p.role,
+      })));
+
+    if (pErr) throw pErr;
+
+    return {
+      id: existingTeamId,
+      groupId,
+      matchId,
+      userId,
+      players,
+      captainId,
+      viceCaptainId,
+      totalPoints: 0,
+      createdAt: Date.now(),
+    };
+  }
+
+  // Create new team
+  const { data: team, error: tErr } = await supabase
+    .from('gully11_fantasy_teams')
+    .insert({
+      group_id: groupId,
+      match_id: matchId,
+      user_id: userId,
+      captain_id: captainId,
+      vice_captain_id: viceCaptainId,
+    })
+    .select()
+    .single();
+
+  if (tErr) throw tErr;
+
+  // Insert players
+  const { error: pErr } = await supabase
+    .from('gully11_fantasy_team_players')
+    .insert(players.map((p) => ({
+      team_id: team.id,
+      player_id: p.playerId,
+      role: p.role,
+    })));
+
+  if (pErr) throw pErr;
+
+  return {
+    id: team.id,
+    groupId,
+    matchId,
+    userId,
+    players,
+    captainId,
+    viceCaptainId,
+    totalPoints: 0,
+    createdAt: new Date(team.created_at).getTime(),
+  };
+}
+
+export async function fetchFantasyTeams(groupId: string): Promise<FantasyTeam[]> {
+  const { data: teams, error: tErr } = await supabase
+    .from('gully11_fantasy_teams')
+    .select('*')
+    .eq('group_id', groupId);
+
+  if (tErr) throw tErr;
+  if (!teams || teams.length === 0) return [];
+
+  const teamIds = teams.map((t) => t.id);
+
+  const { data: picks, error: pErr } = await supabase
+    .from('gully11_fantasy_team_players')
+    .select('*')
+    .in('team_id', teamIds);
+
+  if (pErr) throw pErr;
+
+  return teams.map((t) => ({
+    id: t.id,
+    groupId: t.group_id,
+    matchId: t.match_id,
+    userId: t.user_id,
+    captainId: t.captain_id,
+    viceCaptainId: t.vice_captain_id,
+    totalPoints: Number(t.total_points || 0),
+    createdAt: new Date(t.created_at).getTime(),
+    players: (picks ?? [])
+      .filter((p) => p.team_id === t.id)
+      .map((p) => ({
+        playerId: p.player_id,
+        role: p.role as FantasyPick['role'],
+      })),
+  }));
+}
+
+// ─── Player Match Stats ─────────────────────────────────────────
+
+export async function savePlayerStats(
+  matchId: number,
+  stats: Omit<PlayerMatchStats, 'matchId' | 'fantasyPoints'>[]
+): Promise<void> {
+  const rows = stats.map((s) => ({
+    match_id: matchId,
+    player_id: s.playerId,
+    runs: s.runs,
+    balls_faced: s.ballsFaced,
+    fours: s.fours,
+    sixes: s.sixes,
+    is_not_out: s.isNotOut,
+    overs_bowled: s.oversBowled,
+    runs_conceded: s.runsConceded,
+    wickets: s.wickets,
+    maidens: s.maidens,
+    catches: s.catches,
+    stumpings: s.stumpings,
+    run_outs: s.runOuts,
+    is_in_playing_xi: s.isInPlayingXi,
+    is_man_of_match: s.isManOfMatch,
+  }));
+
+  const { error } = await supabase
+    .from('gully11_player_match_stats')
+    .upsert(rows, { onConflict: 'match_id,player_id' });
+
+  if (error) throw error;
+}
+
+export async function fetchPlayerStats(matchId: number): Promise<PlayerMatchStats[]> {
+  const { data, error } = await supabase
+    .from('gully11_player_match_stats')
+    .select('*')
+    .eq('match_id', matchId);
+
+  if (error) throw error;
+
+  return (data ?? []).map((s) => ({
+    matchId: s.match_id,
+    playerId: s.player_id,
+    runs: s.runs,
+    ballsFaced: s.balls_faced,
+    fours: s.fours,
+    sixes: s.sixes,
+    isNotOut: s.is_not_out,
+    oversBowled: Number(s.overs_bowled),
+    runsConceded: s.runs_conceded,
+    wickets: s.wickets,
+    maidens: s.maidens,
+    catches: s.catches,
+    stumpings: s.stumpings,
+    runOuts: s.run_outs,
+    isInPlayingXi: s.is_in_playing_xi,
+    isManOfMatch: s.is_man_of_match,
+    fantasyPoints: Number(s.fantasy_points),
+  }));
+}
+
+// ─── Point Rules ────────────────────────────────────────────────
+
+export async function fetchPointRules(): Promise<PointRule[]> {
+  const { data, error } = await supabase
+    .from('gully11_point_rules')
+    .select('*')
+    .order('id');
+
+  if (error) throw error;
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    category: r.category,
+    action: r.action,
+    points: Number(r.points),
+    description: r.description,
   }));
 }
 
