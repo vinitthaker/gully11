@@ -336,7 +336,7 @@ export function GroupDashboardPage() {
                 <div>
                   <p className="text-label text-on-surface-variant mb-2">SETTLEMENTS</p>
                   <p className="text-sm text-on-surface">
-                    The app tracks running balances across all matches. Check the Settlements page anytime to see who owes whom and settle up.
+                    The app tracks running balances across all matches. Settle balances at the end once IPL is complete — check the Settlements page to see who owes whom.
                   </p>
                 </div>
               </div>
