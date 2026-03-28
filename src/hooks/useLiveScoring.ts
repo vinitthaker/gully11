@@ -1,16 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import * as cricapi from '../lib/cricapi';
-import { extractPlayerStats, calculateTeamScore, type TeamScore, type PlayerStats } from '../lib/scoring';
+import * as cricbuzz from '../lib/cricbuzz';
+import { extractPlayerStatsFromCricbuzz, calculateTeamScore, type TeamScore, type PlayerStats } from '../lib/scoring';
 import type { FantasyTeam } from '../types';
 import { IPL_PLAYERS } from '../utils/players';
 
-// Poll every 3 minutes to stay within 100 API calls/day
-// A T20 match ~3.5 hours = 210 min / 3 = 70 calls (scorecard only)
-// Leaves ~30 calls for other API usage
+// Poll every 3 minutes — Cricbuzz free tier: 200 requests/month
+// A T20 match ~3.5h = ~70 polls. Budget carefully.
 const POLL_INTERVAL = 180_000; // 3 minutes
 
 interface UseLiveScoringOptions {
-  cricapiMatchId?: string;
+  cricbuzzMatchId?: number;
   matchStarted: boolean;
   matchEnded: boolean;
   teams: FantasyTeam[];
@@ -20,16 +19,15 @@ interface UseLiveScoringOptions {
 interface UseLiveScoringResult {
   teamScores: TeamScore[];
   playerStats: Map<string, PlayerStats>;
-  liveScore: { t1s?: string; t2s?: string; status?: string } | null;
+  liveScore: { status?: string } | null;
   isLoading: boolean;
   lastUpdated: number | null;
   error: string | null;
-  apiCallsUsed: number;
   refresh: () => Promise<void>;
 }
 
 export function useLiveScoring({
-  cricapiMatchId,
+  cricbuzzMatchId,
   matchStarted,
   matchEnded,
   teams,
@@ -37,61 +35,36 @@ export function useLiveScoring({
 }: UseLiveScoringOptions): UseLiveScoringResult {
   const [teamScores, setTeamScores] = useState<TeamScore[]>([]);
   const [playerStats, setPlayerStats] = useState<Map<string, PlayerStats>>(new Map());
-  const [liveScore, setLiveScore] = useState<{ t1s?: string; t2s?: string; status?: string } | null>(null);
+  const [liveScore, setLiveScore] = useState<{ status?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [apiCallsUsed, setApiCallsUsed] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const teamsRef = useRef(teams);
   teamsRef.current = teams;
 
   const fetchAndCalculate = useCallback(async () => {
-    if (!cricapiMatchId || !enabled) return;
-
-    // Safety: stop polling if we've used too many API calls (leave buffer)
-    if (apiCallsUsed >= 80) {
-      console.warn('CricAPI call budget exhausted (80/100). Stopping auto-poll.');
-      setError('API call limit reached. Use manual refresh sparingly.');
-      return;
-    }
+    if (!cricbuzzMatchId || !enabled) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      // Single API call — scorecard gives us player stats AND match status
-      const scorecard = await cricapi.getMatchScorecard(cricapiMatchId);
-      setApiCallsUsed((prev) => prev + 1);
+      // Single API call — Cricbuzz scorecard
+      const scorecard = await cricbuzz.getScorecard(cricbuzzMatchId);
 
       if (scorecard && scorecard.length > 0) {
-        // Extract live score from scorecard innings
-        const innings = scorecard.map((inn) => {
-          const battingRuns = inn.batting?.reduce((s, b) => s + (b.r || 0), 0) ?? 0;
-          const extras = 0; // scorecard doesn't separate extras easily
-          return { inning: inn.inning, runs: battingRuns + extras };
-        });
+        setLiveScore({ status: scorecard.length >= 2 ? 'In Progress' : 'Innings 1' });
 
-        if (innings.length > 0) {
-          setLiveScore({
-            t1s: innings[0] ? `${innings[0].inning}` : undefined,
-            t2s: innings[1] ? `${innings[1].inning}` : undefined,
-            status: innings.length >= 2 ? 'In Progress' : `${innings[0]?.inning || 'Live'}`,
-          });
-        }
-
-        // Calculate points from scorecard
-        const stats = extractPlayerStats(scorecard);
+        // Extract stats using Cricbuzz format
+        const stats = extractPlayerStatsFromCricbuzz(scorecard);
         setPlayerStats(stats);
 
-        // Build name-based mapping: our player ID → CricAPI player ID
-        // CricAPI uses UUIDs, our app uses "team-idx" format
-        // We build a lookup from various name forms to CricAPI IDs
-        const cricApiPlayers = Array.from(stats.entries());
-
+        // Build name-based mapping: our player ID → Cricbuzz player ID (string)
+        const cricbuzzPlayers = Array.from(stats.entries());
         const normalize = (s: string) => s.toLowerCase().trim().replace(/[^a-z ]/g, '');
 
-        const mapPlayerToCricApi = (ourPlayerId: string): string => {
+        const mapPlayerToCricbuzz = (ourPlayerId: string): string => {
           const player = IPL_PLAYERS.find((p) => p.id === ourPlayerId);
           if (!player) return ourPlayerId;
 
@@ -100,35 +73,39 @@ export function useLiveScoring({
           const ourLast = ourParts[ourParts.length - 1];
           const ourFirst = ourParts[0];
 
-          for (const [cricId, cricPlayer] of cricApiPlayers) {
-            const cricName = normalize(cricPlayer.name);
-            const cricParts = cricName.split(' ').filter(Boolean);
-            const cricLast = cricParts[cricParts.length - 1];
-            const cricFirst = cricParts[0];
+          for (const [cbId, cbPlayer] of cricbuzzPlayers) {
+            const cbName = normalize(cbPlayer.name);
+            const cbParts = cbName.split(' ').filter(Boolean);
+            const cbLast = cbParts[cbParts.length - 1];
+            const cbFirst = cbParts[0];
 
-            // 1. Exact full name match
-            if (ourName === cricName) return cricId;
+            // 1. Exact full name
+            if (ourName === cbName) return cbId;
 
-            // 2. Last name match + first letter match (e.g. "V Kohli" = "Virat Kohli")
-            if (ourLast === cricLast && ourFirst[0] === cricFirst[0]) return cricId;
+            // 2. Last name + first letter (e.g. "V Kohli" = "Virat Kohli")
+            if (ourLast === cbLast && ourFirst[0] === cbFirst[0]) return cbId;
 
-            // 3. One name is short form of another (e.g. "Phil Salt" vs "Philip Salt")
-            if (ourLast === cricLast && (cricFirst.startsWith(ourFirst) || ourFirst.startsWith(cricFirst))) return cricId;
+            // 3. Short form prefix (e.g. "Phil Salt" vs "Philip Salt")
+            if (ourLast === cbLast && (cbFirst.startsWith(ourFirst) || ourFirst.startsWith(cbFirst))) return cbId;
 
-            // 4. Last name only match (risky but useful for unique surnames)
-            // Only use if last name is 5+ chars to avoid false matches
-            if (ourLast === cricLast && ourLast.length >= 5) return cricId;
+            // 4. Cricbuzz often uses just last name (e.g. "Head", "Klaasen")
+            if (cbParts.length === 1 && cbFirst === ourLast) return cbId;
+
+            // 5. Our name contains cricbuzz name or vice versa (handles "Bhuvneshwar" vs "Bhuvneshwar Kumar")
+            if (ourName.includes(cbName) || cbName.includes(ourName)) return cbId;
+
+            // 6. Unique long surname match (5+ chars)
+            if (ourLast === cbLast && ourLast.length >= 5) return cbId;
           }
 
-          // No match found — return original ID (will get 0 points)
-          return ourPlayerId;
+          return ourPlayerId; // No match — 0 points
         };
 
         const currentTeams = teamsRef.current;
         const scores: TeamScore[] = currentTeams.map((team) => {
-          const mappedPlayerIds = team.players.map((p) => mapPlayerToCricApi(p.playerId));
-          const mappedCaptainId = mapPlayerToCricApi(team.captainId);
-          const mappedVCId = mapPlayerToCricApi(team.viceCaptainId);
+          const mappedPlayerIds = team.players.map((p) => mapPlayerToCricbuzz(p.playerId));
+          const mappedCaptainId = mapPlayerToCricbuzz(team.captainId);
+          const mappedVCId = mapPlayerToCricbuzz(team.viceCaptainId);
           return calculateTeamScore(stats, mappedPlayerIds, mappedCaptainId, mappedVCId, team.userId);
         });
 
@@ -141,8 +118,8 @@ export function useLiveScoring({
       const msg = e.message || 'Failed to fetch scores';
       setError(msg);
 
-      // Stop polling if rate limited or API error
-      if (msg.includes('exceeded') || msg.includes('limit') || msg.includes('failure')) {
+      // Stop polling on API errors
+      if (msg.includes('429') || msg.includes('limit') || msg.includes('401')) {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -151,16 +128,14 @@ export function useLiveScoring({
     } finally {
       setIsLoading(false);
     }
-  }, [cricapiMatchId, enabled, apiCallsUsed]);
+  }, [cricbuzzMatchId, enabled]);
 
   // Auto-poll during live matches
   useEffect(() => {
-    if (!enabled || !matchStarted || !cricapiMatchId) return;
+    if (!enabled || !matchStarted || !cricbuzzMatchId) return;
 
-    // Initial fetch
     fetchAndCalculate();
 
-    // Only poll if match hasn't ended
     if (!matchEnded) {
       intervalRef.current = setInterval(fetchAndCalculate, POLL_INTERVAL);
     }
@@ -171,7 +146,7 @@ export function useLiveScoring({
         intervalRef.current = null;
       }
     };
-  }, [enabled, matchStarted, matchEnded, cricapiMatchId]); // intentionally exclude fetchAndCalculate to avoid re-creating interval
+  }, [enabled, matchStarted, matchEnded, cricbuzzMatchId]);
 
   return {
     teamScores,
@@ -180,7 +155,6 @@ export function useLiveScoring({
     isLoading,
     lastUpdated,
     error,
-    apiCallsUsed,
     refresh: fetchAndCalculate,
   };
 }

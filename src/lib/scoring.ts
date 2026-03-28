@@ -2,6 +2,7 @@
 // Core rules always apply, advanced rules only when data is available
 
 import type { ScorecardInning } from './cricapi';
+import type { CricbuzzInning } from './cricbuzz';
 
 // ─── Scoring Rules ──────────────────────────────────────────────
 
@@ -330,6 +331,98 @@ export function extractPlayerStats(scorecard: ScorecardInning[]): Map<string, Pl
     }
 
     // Calculate fantasy points
+    const { total, breakdown } = calculatePlayerPoints(stats);
+    stats.fantasyPoints = total;
+    stats.breakdown = breakdown;
+  }
+
+  return statsMap;
+}
+
+// ─── Extract player stats from Cricbuzz scorecard ────────────────
+
+export function extractPlayerStatsFromCricbuzz(scorecard: CricbuzzInning[]): Map<string, PlayerStats> {
+  const statsMap = new Map<string, PlayerStats>();
+
+  // Cricbuzz uses numeric IDs — we use string IDs everywhere
+  const getOrCreate = (id: number, name: string): PlayerStats => {
+    const strId = String(id);
+    if (!statsMap.has(strId)) {
+      statsMap.set(strId, {
+        playerId: strId,
+        name,
+        runs: 0,
+        wickets: 0,
+        catches: 0,
+        ballsFaced: 0,
+        fours: 0,
+        sixes: 0,
+        oversBowled: 0,
+        runsConceded: 0,
+        maidens: 0,
+        stumpings: 0,
+        runOuts: 0,
+        strikeRate: 0,
+        economyRate: 0,
+        fantasyPoints: 0,
+        breakdown: { batting: 0, bowling: 0, fielding: 0, bonus: 0, details: [] },
+      });
+    }
+    return statsMap.get(strId)!;
+  };
+
+  for (const inning of scorecard) {
+    // Batting
+    if (inning.batsman) {
+      for (const bat of inning.batsman) {
+        if (!bat.id) continue;
+        const player = getOrCreate(bat.id, bat.name);
+        player.runs += bat.runs || 0;
+        player.ballsFaced += bat.balls || 0;
+        player.fours += bat.fours || 0;
+        player.sixes += bat.sixes || 0;
+      }
+    }
+
+    // Bowling
+    if (inning.bowler) {
+      for (const bowl of inning.bowler) {
+        if (!bowl.id) continue;
+        const player = getOrCreate(bowl.id, bowl.name);
+        player.wickets += bowl.wickets || 0;
+        player.oversBowled += bowl.overs || 0;
+        player.runsConceded += bowl.runs || 0;
+        player.maidens += bowl.maidens || 0;
+      }
+    }
+
+    // Fielding
+    if (inning.fielder) {
+      for (const field of inning.fielder) {
+        // Cricbuzz fielders don't have numeric IDs, match by name
+        const existing = Array.from(statsMap.values()).find(
+          (s) => s.name.toLowerCase() === field.name.toLowerCase() ||
+                 s.name.toLowerCase().includes(field.name.toLowerCase()) ||
+                 field.name.toLowerCase().includes(s.name.toLowerCase())
+        );
+        if (existing) {
+          existing.catches += field.catches || 0;
+          existing.stumpings += field.stumpings || 0;
+          existing.runOuts += field.runouts || 0;
+        }
+      }
+    }
+  }
+
+  // Calculate derived stats and fantasy points
+  for (const [, stats] of statsMap) {
+    if (stats.ballsFaced > 0) {
+      stats.strikeRate = (stats.runs / stats.ballsFaced) * 100;
+    }
+    if (stats.oversBowled > 0) {
+      stats.economyRate = stats.runsConceded / stats.oversBowled;
+    }
+
     const { total, breakdown } = calculatePlayerPoints(stats);
     stats.fantasyPoints = total;
     stats.breakdown = breakdown;

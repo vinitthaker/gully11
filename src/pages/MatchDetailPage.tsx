@@ -12,6 +12,7 @@ import { getAvatarColor, getInitial } from '../utils/avatarColor';
 import { formatAmount } from '../utils/currency';
 import { IPL_PLAYERS } from '../utils/players';
 import type { TeamScore } from '../lib/scoring';
+// Using Cricbuzz API via useLiveScoring hook
 
 export function MatchDetailPage() {
   const { id: groupId, matchId: matchIdStr } = useParams<{ id: string; matchId: string }>();
@@ -49,7 +50,7 @@ export function MatchDetailPage() {
     error: scoringError,
     refresh: refreshScoring,
   } = useLiveScoring({
-    cricapiMatchId: match?.cricapiMatchId,
+    cricbuzzMatchId: match?.cricbuzzMatchId,
     matchStarted,
     matchEnded,
     teams: allTeams,
@@ -300,9 +301,7 @@ export function MatchDetailPage() {
                 <p className="text-sm font-bold text-on-surface">
                   {home?.shortName || match.teamHome}
                 </p>
-                {liveScore?.t1s && (
-                  <p className="text-xs font-bold text-primary mt-1">{liveScore.t1s}</p>
-                )}
+{false && null /* live score per team TBD */}
               </div>
 
               <div className="text-center shrink-0">
@@ -320,9 +319,7 @@ export function MatchDetailPage() {
                 <p className="text-sm font-bold text-on-surface">
                   {away?.shortName || match.teamAway}
                 </p>
-                {liveScore?.t2s && (
-                  <p className="text-xs font-bold text-primary mt-1">{liveScore.t2s}</p>
-                )}
+{false && null /* live score per team TBD */}
               </div>
             </div>
 
@@ -493,7 +490,7 @@ export function MatchDetailPage() {
             )}
 
             {/* No API match ID — show manual fallback for admin */}
-            {matchStarted && !match.cricapiMatchId && allTeams.length > 0 && (
+            {matchStarted && !match.cricbuzzMatchId && allTeams.length > 0 && (
               <div className="mb-4 bg-amber-50 rounded-2xl p-4">
                 <p className="text-xs text-amber-800 mb-2">
                   Live scoring unavailable — CricAPI match not mapped.
@@ -512,7 +509,7 @@ export function MatchDetailPage() {
             )}
 
             {/* Admin manual fallback even with API */}
-            {isAdmin && matchStarted && match.cricapiMatchId && (
+            {isAdmin && matchStarted && match.cricbuzzMatchId && (
               <button
                 onClick={() => setShowEnterResults(true)}
                 className="w-full text-xs text-on-surface-variant/60 text-center py-2 mt-2"

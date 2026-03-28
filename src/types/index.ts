@@ -25,7 +25,8 @@ export interface IPLMatch {
   teamAway: string;
   matchDate: number;
   venue: string;
-  cricapiMatchId?: string; // CricAPI match ID for live scores & points
+  cricapiMatchId?: string; // CricAPI match ID (legacy)
+  cricbuzzMatchId?: number; // Cricbuzz match ID for live scores & points
 }
 
 export interface MatchResult {
