@@ -23,6 +23,10 @@ interface AppState {
   matchResults: MatchResult[];
   transactions: Transaction[];
 
+  // Loading states
+  isDataLoaded: boolean;
+  isScheduleLoaded: boolean;
+
   // Auth actions
   setAuthUser: (user: SupabaseUser | null) => void;
 
@@ -71,6 +75,10 @@ export const useStore = create<AppState>()(
       iplSchedule: [],
       matchResults: [],
       transactions: [],
+
+      // Loading states
+      isDataLoaded: false,
+      isScheduleLoaded: false,
 
       setAuthUser: (user) => {
         set({
@@ -264,9 +272,10 @@ export const useStore = create<AppState>()(
       fetchIPLSchedule: async () => {
         try {
           const schedule = await db.fetchIPLSchedule();
-          set({ iplSchedule: schedule });
+          set({ iplSchedule: schedule, isScheduleLoaded: true });
         } catch (e) {
           console.error('Failed to fetch IPL schedule:', e);
+          set({ isScheduleLoaded: true }); // Mark loaded even on error
         }
       },
 
@@ -294,6 +303,8 @@ export const useStore = create<AppState>()(
             matchResults: allResults.flat(),
             transactions: allTxs.flat(),
             fantasyTeams: allFantasyTeams,
+            isDataLoaded: true,
+            isScheduleLoaded: true,
             currentUser: {
               id: state.authUser.id,
               name:
@@ -306,6 +317,7 @@ export const useStore = create<AppState>()(
           });
         } catch (e) {
           console.error('Failed to fetch from Supabase:', e);
+          set({ isDataLoaded: true });
         }
       },
     }),

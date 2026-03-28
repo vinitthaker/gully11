@@ -18,7 +18,8 @@ export function GroupDashboardPage() {
   const group = groups.find((g) => g.id === id);
   usePageTitle(group ? `${group.name} | Gully11` : 'Gully11');
 
-  const isDataLoading = groups.length === 0 || iplSchedule.length === 0;
+  const { isDataLoaded, isScheduleLoaded } = useStore();
+  const isDataLoading = !isScheduleLoaded || !isDataLoaded;
 
   if (isDataLoading) {
     return (

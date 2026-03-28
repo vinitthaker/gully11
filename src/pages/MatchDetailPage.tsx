@@ -84,7 +84,8 @@ export function MatchDetailPage() {
     return allTeams;
   }, [allTeams, scoresByUser, teamScores]);
 
-  const isDataLoading = iplSchedule.length === 0 || groups.length === 0;
+  const { isDataLoaded, isScheduleLoaded } = useStore();
+  const isDataLoading = !isScheduleLoaded || (!isDataLoaded && iplSchedule.length === 0);
 
   if (isDataLoading) {
     return (
