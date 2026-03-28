@@ -37,8 +37,8 @@ export function MatchDetailPage() {
 
   const hasResults = existingResults.length > 0;
   const isAdmin = group?.members.find((m) => m.id === currentUser.id)?.isAdmin;
-  const existingFantasyTeam = groupId ? getFantasyTeam(groupId, matchId) : undefined;
-  const allTeams = groupId ? getFantasyTeamsByMatch(groupId, matchId) : [];
+  const existingFantasyTeam = getFantasyTeam(matchId);
+  const allTeams = getFantasyTeamsByMatch(matchId);
 
   const matchStarted = match ? Date.now() > match.matchDate : false;
   const matchEnded = match ? Date.now() > match.matchDate + 4 * 60 * 60 * 1000 : false;

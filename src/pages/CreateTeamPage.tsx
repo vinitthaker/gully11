@@ -30,7 +30,7 @@ export function CreateTeamPage() {
   const { iplSchedule, currentUser, saveFantasyTeam, getFantasyTeam } = useStore();
   const match = iplSchedule.find((m) => m.id === matchId);
 
-  const existingTeam = groupId ? getFantasyTeam(groupId, matchId) : undefined;
+  const existingTeam = getFantasyTeam(matchId);
 
   // State
   const [step, setStep] = useState<Step>(existingTeam ? 'preview' : 'select');
@@ -157,7 +157,7 @@ export function CreateTeamPage() {
     }));
     const team: FantasyTeam = {
       id: existingTeam?.id ?? generateId(),
-      groupId,
+      groupId: groupId || undefined,
       matchId,
       userId: currentUser.id,
       players: picks,

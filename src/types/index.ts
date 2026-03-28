@@ -54,7 +54,7 @@ export interface Debt {
 
 export interface FantasyTeam {
   id: string;
-  groupId: string;
+  groupId?: string; // Optional — teams are per match per user, shared across groups
   matchId: number;
   userId: string;
   players: FantasyPick[];

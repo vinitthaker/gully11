@@ -24,7 +24,7 @@ export function LeaderboardPage() {
     const stats: Record<string, { matchesPlayed: number; totalPoints: number; wins: number }> = {};
 
     for (const m of group.members) {
-      const memberTeams = fantasyTeams.filter((t) => t.groupId === id && t.userId === m.id);
+      const memberTeams = fantasyTeams.filter((t) => t.userId === m.id);
       const memberResults = matchResults.filter((r) => r.groupId === id && r.userId === m.id);
       const wins = memberResults.filter((r) => r.rank === 1).length;
 
@@ -56,7 +56,7 @@ export function LeaderboardPage() {
     );
   }
 
-  const hasAnyData = groupTransactions.length > 0 || fantasyTeams.some((t) => t.groupId === id);
+  const hasAnyData = groupTransactions.length > 0 || fantasyTeams.length > 0;
 
   return (
     <div className="min-h-screen bg-surface">

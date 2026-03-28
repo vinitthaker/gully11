@@ -267,7 +267,7 @@ export async function fetchGroupTransactions(groupId: string): Promise<Transacti
 
   return (data ?? []).map((t) => ({
     id: t.id,
-    groupId: t.group_id,
+    groupId: t.group_id || undefined,
     matchId: t.match_id,
     userId: t.user_id,
     amount: Number(t.amount),
@@ -297,7 +297,7 @@ export async function fetchPlayers(teamCodes?: string[]): Promise<Player[]> {
 // ─── Fantasy Teams ──────────────────────────────────────────────
 
 export async function saveFantasyTeam(
-  groupId: string,
+  groupId: string | null,
   matchId: number,
   userId: string,
   players: FantasyPick[],
@@ -337,7 +337,7 @@ export async function saveFantasyTeam(
 
     return {
       id: existingTeamId,
-      groupId,
+      groupId: groupId || undefined,
       matchId,
       userId,
       players,
@@ -376,7 +376,7 @@ export async function saveFantasyTeam(
 
   return {
     id: team.id,
-    groupId,
+    groupId: groupId || undefined,
     matchId,
     userId,
     players,
@@ -387,11 +387,12 @@ export async function saveFantasyTeam(
   };
 }
 
-export async function fetchFantasyTeams(groupId: string): Promise<FantasyTeam[]> {
-  const { data: teams, error: tErr } = await supabase
-    .from('gully11_fantasy_teams')
-    .select('*')
-    .eq('group_id', groupId);
+export async function fetchFantasyTeams(userId?: string): Promise<FantasyTeam[]> {
+  let query = supabase.from('gully11_fantasy_teams').select('*');
+  if (userId) {
+    query = query.eq('user_id', userId);
+  }
+  const { data: teams, error: tErr } = await query;
 
   if (tErr) throw tErr;
   if (!teams || teams.length === 0) return [];
@@ -407,7 +408,7 @@ export async function fetchFantasyTeams(groupId: string): Promise<FantasyTeam[]>
 
   return teams.map((t) => ({
     id: t.id,
-    groupId: t.group_id,
+    groupId: t.group_id || undefined,
     matchId: t.match_id,
     userId: t.user_id,
     captainId: t.captain_id,

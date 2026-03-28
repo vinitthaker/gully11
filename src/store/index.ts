@@ -42,10 +42,10 @@ interface AppState {
     rankings: { userId: string; rank: number; payout: number; netAmount: number }[]
   ) => Promise<void>;
 
-  // Fantasy team actions
+  // Fantasy team actions (teams are per match per user, shared across groups)
   saveFantasyTeam: (team: FantasyTeam) => Promise<void>;
-  getFantasyTeam: (groupId: string, matchId: number) => FantasyTeam | undefined;
-  getFantasyTeamsByMatch: (groupId: string, matchId: number) => FantasyTeam[];
+  getFantasyTeam: (matchId: number) => FantasyTeam | undefined;
+  getFantasyTeamsByMatch: (matchId: number) => FantasyTeam[];
 
   // Sync
   fetchIPLSchedule: () => Promise<void>;
@@ -199,11 +199,11 @@ export const useStore = create<AppState>()(
         if (state.isAuthenticated && state.authUser) {
           try {
             const existingId = state.fantasyTeams.find(
-              (t) => t.groupId === team.groupId && t.matchId === team.matchId && t.userId === team.userId
+              (t) => t.matchId === team.matchId && t.userId === team.userId
             )?.id;
 
             const saved = await db.saveFantasyTeam(
-              team.groupId,
+              team.groupId || null,
               team.matchId,
               state.authUser.id,
               team.players,
@@ -215,7 +215,7 @@ export const useStore = create<AppState>()(
             // Update local state with Supabase-generated ID
             set((s) => {
               const idx = s.fantasyTeams.findIndex(
-                (t) => t.groupId === team.groupId && t.matchId === team.matchId && t.userId === team.userId
+                (t) => t.matchId === team.matchId && t.userId === team.userId
               );
               if (idx >= 0) {
                 const updated = [...s.fantasyTeams];
@@ -234,7 +234,7 @@ export const useStore = create<AppState>()(
         // Local fallback
         set((s) => {
           const idx = s.fantasyTeams.findIndex(
-            (t) => t.groupId === team.groupId && t.matchId === team.matchId && t.userId === team.userId
+            (t) => t.matchId === team.matchId && t.userId === team.userId
           );
           if (idx >= 0) {
             const updated = [...s.fantasyTeams];
@@ -245,18 +245,19 @@ export const useStore = create<AppState>()(
         });
       },
 
-      getFantasyTeam: (groupId, matchId) => {
+      // Teams are per match per user — shared across all groups
+      getFantasyTeam: (matchId) => {
         const state = get();
         const userId = state.currentUser.id;
         return state.fantasyTeams.find(
-          (t) => t.groupId === groupId && t.matchId === matchId && t.userId === userId
+          (t) => t.matchId === matchId && t.userId === userId
         );
       },
 
-      getFantasyTeamsByMatch: (groupId, matchId) => {
+      getFantasyTeamsByMatch: (matchId) => {
         const state = get();
         return state.fantasyTeams.filter(
-          (t) => t.groupId === groupId && t.matchId === matchId
+          (t) => t.matchId === matchId
         );
       },
 
@@ -279,12 +280,12 @@ export const useStore = create<AppState>()(
             db.fetchIPLSchedule(),
           ]);
 
-          // Fetch results, transactions & fantasy teams for all groups
+          // Fetch results, transactions for all groups + fantasy teams for user
           const groupIds = groups.map((g) => g.id);
           const [allResults, allTxs, allFantasyTeams] = await Promise.all([
             Promise.all(groupIds.map((id) => db.fetchGroupResults(id))),
             Promise.all(groupIds.map((id) => db.fetchGroupTransactions(id))),
-            Promise.all(groupIds.map((id) => db.fetchFantasyTeams(id))),
+            db.fetchFantasyTeams(), // Fetch all teams (not per group)
           ]);
 
           set({
@@ -292,7 +293,7 @@ export const useStore = create<AppState>()(
             iplSchedule: schedule,
             matchResults: allResults.flat(),
             transactions: allTxs.flat(),
-            fantasyTeams: allFantasyTeams.flat(),
+            fantasyTeams: allFantasyTeams,
             currentUser: {
               id: state.authUser.id,
               name:
