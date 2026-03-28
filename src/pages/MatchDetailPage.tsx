@@ -822,7 +822,7 @@ function YourTeamPreview({
         <p className="text-label text-on-surface-variant">YOUR TEAM · {totalCredits}/100 cr</p>
         {canEdit && (
           <button
-            onClick={() => navigate(`/group/${groupId}/match/${matchId}/create-team`)}
+            onClick={() => navigate(`/group/${groupId}/match/${matchId}/create-team?edit=true`)}
             className="flex items-center gap-1 text-xs font-semibold text-primary"
           >
             <Pencil size={12} /> Edit

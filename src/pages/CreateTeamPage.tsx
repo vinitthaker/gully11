@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronLeft } from 'lucide-react';
 import { useStore } from '../store';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -26,15 +26,17 @@ export function CreateTeamPage() {
   const { id: groupId, matchId: matchIdStr } = useParams<{ id: string; matchId: string }>();
   const matchId = Number(matchIdStr);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const startInEdit = searchParams.get('edit') === 'true';
 
   const { iplSchedule, currentUser, saveFantasyTeam, getFantasyTeam } = useStore();
   const match = iplSchedule.find((m) => m.id === matchId);
 
   const existingTeam = getFantasyTeam(matchId);
 
-  // State
-  const [step, setStep] = useState<Step>(existingTeam ? 'preview' : 'select');
-  const [isEditing, setIsEditing] = useState(false);
+  // State — if coming from Edit button, go straight to select mode
+  const [step, setStep] = useState<Step>(existingTeam && !startInEdit ? 'preview' : 'select');
+  const [isEditing, setIsEditing] = useState(startInEdit && !!existingTeam);
   const [activeRole, setActiveRole] = useState<PlayerRole>('WK');
   const [selected, setSelected] = useState<Set<string>>(() => {
     if (existingTeam) return new Set(existingTeam.players.map((p) => p.playerId));
@@ -177,18 +179,18 @@ export function CreateTeamPage() {
 
   function handleBack() {
     if (step === 'preview' && !isEditing) {
-      // Viewing existing team (not editing) — back goes to match detail
+      // Viewing existing team preview — back goes to match detail
       navigate(`/group/${groupId}/match/${matchId}`);
     } else if (step === 'preview') {
       setStep('captain');
     } else if (step === 'captain') {
       setStep('select');
-    } else if (step === 'select' && existingTeam && isEditing) {
-      // Was editing, go back to preview
-      setStep('preview');
-      setIsEditing(false);
+    } else if (step === 'select' && existingTeam) {
+      // Editing existing team — back goes to match detail (not preview loop)
+      navigate(`/group/${groupId}/match/${matchId}`);
     } else {
-      navigate(-1);
+      // New team creation — back goes to match detail
+      navigate(`/group/${groupId}/match/${matchId}`);
     }
   }
 
