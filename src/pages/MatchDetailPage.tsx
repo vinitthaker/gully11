@@ -230,9 +230,11 @@ export function MatchDetailPage() {
                   )}
                   {player.pts && (
                     <div className="flex items-center gap-1 shrink-0">
-                      {/* Breakdown tooltip */}
+                      {/* Stat summary */}
                       <span className="text-[9px] text-on-surface-variant">
                         {player.pts.breakdown.runs > 0 ? `${player.pts.breakdown.runs}r` : ''}
+                        {player.pts.breakdown.fours > 0 ? `(${player.pts.breakdown.fours}×4` : ''}
+                        {player.pts.breakdown.sixes > 0 ? ` ${player.pts.breakdown.sixes}×6)` : player.pts.breakdown.fours > 0 ? ')' : ''}
                         {player.pts.breakdown.wickets > 0 ? ` ${player.pts.breakdown.wickets}w` : ''}
                         {player.pts.breakdown.catches > 0 ? ` ${player.pts.breakdown.catches}c` : ''}
                       </span>
@@ -247,9 +249,28 @@ export function MatchDetailPage() {
               );
             })}
             {score && (
-              <div className="mt-2 pt-2 border-t border-surface-dim flex items-center justify-between">
-                <span className="text-xs text-on-surface-variant">Total</span>
-                <span className="font-headline font-bold text-sm text-primary">{score.totalPoints} pts</span>
+              <div className="mt-2 pt-2 border-t border-surface-dim">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-on-surface-variant">Total</span>
+                  <span className="font-headline font-bold text-sm text-primary">{score.totalPoints} pts</span>
+                </div>
+                {/* Category breakdown */}
+                <div className="flex gap-3 mt-1">
+                  {(() => {
+                    const bat = score.playerScores.reduce((s, p) => s + (p.breakdown.batting || 0), 0);
+                    const bowl = score.playerScores.reduce((s, p) => s + (p.breakdown.bowling || 0), 0);
+                    const field = score.playerScores.reduce((s, p) => s + (p.breakdown.fielding || 0), 0);
+                    const bon = score.playerScores.reduce((s, p) => s + (p.breakdown.bonus || 0), 0);
+                    return (
+                      <>
+                        {bat !== 0 && <span className="text-[9px] text-on-surface-variant">Bat: {bat}</span>}
+                        {bowl !== 0 && <span className="text-[9px] text-on-surface-variant">Bowl: {bowl}</span>}
+                        {field !== 0 && <span className="text-[9px] text-on-surface-variant">Field: {field}</span>}
+                        {bon !== 0 && <span className="text-[9px] text-on-surface-variant">Bonus: {bon}</span>}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             )}
           </div>
