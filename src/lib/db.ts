@@ -486,6 +486,68 @@ export async function fetchPlayerStats(matchId: number): Promise<PlayerMatchStat
 
 // ─── Point Rules ────────────────────────────────────────────────
 
+// ─── Scorecard Cache ─────────────────────────────────────────
+
+export interface ScorecardCache {
+  matchId: number;
+  cricbuzzMatchId: string;
+  scorecardData: any;
+  matchScore: {
+    innings: { team: string; score: string; overs: string }[];
+    status: string;
+  };
+  playerPoints: Record<string, any>;
+  teamScores: any[];
+  lastUpdated: string;
+}
+
+export async function fetchScorecardCache(matchId: number): Promise<ScorecardCache | null> {
+  const { data, error } = await supabase
+    .from('gully11_scorecard_cache')
+    .select('*')
+    .eq('match_id', matchId)
+    .single();
+
+  if (error || !data) return null;
+
+  return {
+    matchId: data.match_id,
+    cricbuzzMatchId: data.cricbuzz_match_id,
+    scorecardData: data.scorecard_data,
+    matchScore: data.match_score,
+    playerPoints: data.player_points,
+    teamScores: data.team_scores,
+    lastUpdated: data.last_updated,
+  };
+}
+
+export async function saveScorecardCache(
+  matchId: number,
+  cricbuzzMatchId: string,
+  scorecardData: any,
+  matchScore: any,
+  playerPoints: Record<string, any>,
+  teamScores: any[],
+  userId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('gully11_scorecard_cache')
+    .upsert({
+      match_id: matchId,
+      cricbuzz_match_id: cricbuzzMatchId,
+      scorecard_data: scorecardData,
+      match_score: matchScore,
+      player_points: playerPoints,
+      team_scores: teamScores,
+      last_updated: new Date().toISOString(),
+      updated_by: userId,
+    }, { onConflict: 'match_id' });
+
+  if (error) throw error;
+}
+
+// ─── Point Rules ────────────────────────────────────────────────
+
 export async function fetchPointRules(): Promise<PointRule[]> {
   const { data, error } = await supabase
     .from('gully11_point_rules')

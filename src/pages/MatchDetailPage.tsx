@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Trophy, Users, Pencil, Clock, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Trophy, Users, Pencil, Clock, ChevronDown, ChevronUp, RefreshCw, Info } from 'lucide-react';
 import { useStore } from '../store';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
@@ -29,6 +29,7 @@ export function MatchDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
   const [pointOverrides, setPointOverrides] = useState<Record<string, number>>({});
+  const [showScoringRules, setShowScoringRules] = useState(false);
 
   const existingResults = useMemo(() => {
     return matchResults.filter((r) => r.groupId === groupId && r.matchId === matchId);
@@ -42,20 +43,26 @@ export function MatchDetailPage() {
   const matchStarted = match ? Date.now() > match.matchDate : false;
   const matchEnded = match ? Date.now() > match.matchDate + 4 * 60 * 60 * 1000 : false;
 
+  const authUser = useStore((s) => s.authUser);
+
   // ─── Auto scoring hook ────────────────────────────────────────
   const {
     teamScores,
     playerIdMap,
-    liveScore,
+    matchScore,
     isLoading: scoringLoading,
     lastUpdated,
     error: scoringError,
     refresh: refreshScoring,
+    isRefreshingFromApi,
   } = useLiveScoring({
     cricbuzzMatchId: match?.cricbuzzMatchId,
+    matchId,
     matchStarted,
     teams: allTeams,
     enabled: matchStarted && allTeams.length > 0 && !hasResults,
+    isAdmin: !!isAdmin,
+    authUserId: authUser?.id,
   });
 
   // Map team scores by userId for easy lookup
@@ -359,18 +366,32 @@ export function MatchDetailPage() {
               </div>
             </div>
 
-            {/* Live status */}
-            {liveScore?.status ? (
-              <div className="text-center mt-3 pt-3 border-t border-surface-dim">
-                <div className="flex items-center justify-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <p className="text-xs text-primary font-medium">{liveScore.status}</p>
+            {/* Match score + live status */}
+            {matchScore ? (
+              <div className="mt-3 pt-3 border-t border-surface-dim">
+                {/* Innings scores */}
+                <div className="space-y-1 mb-2">
+                  {matchScore.innings.map((inn, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs px-2">
+                      <span className="text-primary font-medium">{inn.team}</span>
+                      <span className="text-on-surface font-bold">
+                        {inn.score} <span className="text-on-surface-variant font-normal">({inn.overs} ov)</span>
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                {lastUpdated && (
-                  <p className="text-[10px] text-on-surface-variant/50 mt-1">
-                    Updated {Math.round((Date.now() - lastUpdated) / 1000)}s ago
-                  </p>
-                )}
+                {/* Status */}
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <p className="text-xs text-primary font-medium">{matchScore.status}</p>
+                  </div>
+                  {lastUpdated && (
+                    <p className="text-[10px] text-on-surface-variant/50 mt-1">
+                      Points updated {new Date(lastUpdated).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="text-center mt-4 pt-4 border-t border-surface-dim">
@@ -391,6 +412,70 @@ export function MatchDetailPage() {
               </div>
             )}
           </Card>
+        </div>
+
+        {/* ─── Scoring Rules ─── */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowScoringRules(!showScoringRules)}
+            className="flex items-center gap-1.5 text-xs font-medium text-on-surface-variant/70 hover:text-on-surface-variant"
+          >
+            <Info size={14} />
+            How are points calculated?
+            {showScoringRules ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {showScoringRules && (
+            <Card className="mt-2 !p-4">
+              <div className="space-y-3 text-xs">
+                <div>
+                  <p className="font-bold text-on-surface mb-1">🏏 Batting</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-on-surface-variant">
+                    <span>Run</span><span className="text-right">+1 pt</span>
+                    <span>Boundary (4)</span><span className="text-right">+1 bonus</span>
+                    <span>Six (6)</span><span className="text-right">+2 bonus</span>
+                    <span>Half Century</span><span className="text-right">+8 bonus</span>
+                    <span>Century</span><span className="text-right">+16 bonus</span>
+                    <span>Duck (0 runs, out)</span><span className="text-right text-red-500">-3 pts</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="font-bold text-on-surface mb-1">🎯 Bowling</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-on-surface-variant">
+                    <span>Wicket</span><span className="text-right">+25 pts</span>
+                    <span>3-Wicket Haul</span><span className="text-right">+8 bonus</span>
+                    <span>5-Wicket Haul</span><span className="text-right">+16 bonus</span>
+                    <span>Maiden Over</span><span className="text-right">+12 pts</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="font-bold text-on-surface mb-1">🧤 Fielding</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-on-surface-variant">
+                    <span>Catch</span><span className="text-right">+8 pts</span>
+                    <span>Run Out</span><span className="text-right">+12 pts</span>
+                    <span>Stumping</span><span className="text-right">+12 pts</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="font-bold text-on-surface mb-1">⚡ Bonus</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-on-surface-variant">
+                    <span>SR &gt; 170 (min 10 balls)</span><span className="text-right">+6 pts</span>
+                    <span>SR 150–170</span><span className="text-right">+4 pts</span>
+                    <span>SR &lt; 60</span><span className="text-right text-red-500">-6 pts</span>
+                    <span>Economy &lt; 5 (min 2 ov)</span><span className="text-right">+6 pts</span>
+                    <span>Economy &gt; 12</span><span className="text-right text-red-500">-6 pts</span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-surface-dim">
+                  <p className="font-bold text-on-surface mb-1">👑 Multipliers</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-on-surface-variant">
+                    <span>Captain</span><span className="text-right font-bold text-primary">2x points</span>
+                    <span>Vice Captain</span><span className="text-right font-bold text-on-surface-variant">1.5x points</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* ─── Results finalized ─── */}
@@ -479,16 +564,19 @@ export function MatchDetailPage() {
                   <p className="text-label text-on-surface-variant">
                     {teamScores.length > 0 ? 'LIVE LEADERBOARD' : 'ALL TEAMS'} ({allTeams.length})
                   </p>
-                  {teamScores.length > 0 && (
-                    <button
-                      onClick={refreshScoring}
-                      disabled={scoringLoading}
-                      className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant disabled:opacity-50"
-                    >
-                      <RefreshCw size={12} className={scoringLoading ? 'animate-spin' : ''} />
-                      {scoringLoading ? '' : 'Refresh'}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Admin: refresh from Cricbuzz API */}
+                    {isAdmin && match?.cricbuzzMatchId && !hasResults && (
+                      <button
+                        onClick={refreshScoring}
+                        disabled={isRefreshingFromApi}
+                        className="flex items-center gap-1 text-xs font-semibold text-primary disabled:opacity-50 bg-primary/10 rounded-full px-3 py-1"
+                      >
+                        <RefreshCw size={12} className={isRefreshingFromApi ? 'animate-spin' : ''} />
+                        {isRefreshingFromApi ? 'Updating...' : 'Update Scores'}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {scoringError && (
@@ -500,7 +588,7 @@ export function MatchDetailPage() {
                 {scoringLoading && teamScores.length === 0 && (
                   <div className="text-center py-6">
                     <RefreshCw size={20} className="animate-spin mx-auto text-primary mb-2" />
-                    <p className="text-xs text-on-surface-variant">Fetching live scores...</p>
+                    <p className="text-xs text-on-surface-variant">Loading scores...</p>
                   </div>
                 )}
 
@@ -542,7 +630,7 @@ export function MatchDetailPage() {
             {matchStarted && !match.cricbuzzMatchId && allTeams.length > 0 && (
               <div className="mb-4 bg-amber-50 rounded-2xl p-4">
                 <p className="text-xs text-amber-800 mb-2">
-                  Live scoring unavailable — CricAPI match not mapped.
+                  Live scoring unavailable — match not linked to Cricbuzz yet.
                 </p>
                 {isAdmin && (
                   <Button
