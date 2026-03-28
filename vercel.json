@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
@@ -20,6 +21,12 @@
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=604800" }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/refresh-scores",
+      "schedule": "*/3 * * * *"
     }
   ]
 }
