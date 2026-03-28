@@ -1,16 +1,17 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Trophy, Users, Pencil, Clock, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trophy, Users, Pencil, Clock, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useStore } from '../store';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useLiveScoring } from '../hooks/useLiveScoring';
 import { getTeamByName, calculatePayouts } from '../utils/ipl';
 import { getAvatarColor, getInitial } from '../utils/avatarColor';
 import { formatAmount } from '../utils/currency';
 import { IPL_PLAYERS } from '../utils/players';
-import * as cricapi from '../lib/cricapi';
+import type { TeamScore } from '../lib/scoring';
 
 export function MatchDetailPage() {
   const { id: groupId, matchId: matchIdStr } = useParams<{ id: string; matchId: string }>();
@@ -25,16 +26,6 @@ export function MatchDetailPage() {
   const [showEnterResults, setShowEnterResults] = useState(false);
   const [rankings, setRankings] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
-
-  // Live scores
-  const [liveScore, setLiveScore] = useState<{ t1s?: string; t2s?: string; status?: string } | null>(null);
-  const [, setLoadingScore] = useState(false);
-
-  // Fantasy points
-  const [calculatingPoints, setCalculatingPoints] = useState(false);
-  const [matchPoints, setMatchPoints] = useState<cricapi.MatchPointsResponse | null>(null);
-
-  // Expanded member teams
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
 
   const existingResults = useMemo(() => {
@@ -46,55 +37,42 @@ export function MatchDetailPage() {
   const existingFantasyTeam = groupId ? getFantasyTeam(groupId, matchId) : undefined;
   const allTeams = groupId ? getFantasyTeamsByMatch(groupId, matchId) : [];
 
-  // Match started?
   const matchStarted = match ? Date.now() > match.matchDate : false;
-  const matchEnded = match ? Date.now() > match.matchDate + 4 * 60 * 60 * 1000 : false; // ~4h after start
+  const matchEnded = match ? Date.now() > match.matchDate + 4 * 60 * 60 * 1000 : false;
 
-  // Fetch live scores when match is live
-  const fetchLiveScore = useCallback(async () => {
-    if (!match) return;
-    setLoadingScore(true);
-    try {
-      const scores = await cricapi.getLiveScores();
-      const homeCode = getTeamByName(match.teamHome)?.code;
-      const awayCode = getTeamByName(match.teamAway)?.code;
+  // ─── Auto scoring hook ────────────────────────────────────────
+  const {
+    teamScores,
+    liveScore,
+    isLoading: scoringLoading,
+    lastUpdated,
+    refresh: refreshScoring,
+  } = useLiveScoring({
+    cricapiMatchId: match?.cricapiMatchId,
+    matchStarted,
+    matchEnded,
+    teams: allTeams,
+    enabled: matchStarted && allTeams.length > 0 && !hasResults,
+  });
 
-      const liveMatch = scores.find((s) => {
-        const teams = s.teams?.map((t) => cricapi.resolveTeamCode(t)).filter(Boolean) || [];
-        return teams.includes(homeCode!) && teams.includes(awayCode!);
+  // Map team scores by userId for easy lookup
+  const scoresByUser = useMemo(() => {
+    const map: Record<string, TeamScore> = {};
+    teamScores.forEach((ts) => { map[ts.userId] = ts; });
+    return map;
+  }, [teamScores]);
+
+  // Sort teams by live points
+  const sortedTeams = useMemo(() => {
+    if (teamScores.length > 0) {
+      return [...allTeams].sort((a, b) => {
+        const pa = scoresByUser[a.userId]?.totalPoints ?? 0;
+        const pb = scoresByUser[b.userId]?.totalPoints ?? 0;
+        return pb - pa;
       });
-
-      if (liveMatch) {
-        const scoreArr = (liveMatch as any).score || [];
-
-        const findScore = (code: string | undefined) => {
-          const entry = scoreArr.find((s: any) => {
-            const teamCode = cricapi.resolveTeamCode(s.inning?.split(' Inning')?.[0] || '');
-            return teamCode === code;
-          });
-          return entry ? `${entry.r}/${entry.w} (${entry.o})` : undefined;
-        };
-
-        setLiveScore({
-          t1s: findScore(homeCode),
-          t2s: findScore(awayCode),
-          status: liveMatch.status,
-        });
-      }
-    } catch (e) {
-      console.error('Failed to fetch live score:', e);
-    } finally {
-      setLoadingScore(false);
     }
-  }, [match]);
-
-  useEffect(() => {
-    if (matchStarted && !matchEnded) {
-      fetchLiveScore();
-      const interval = setInterval(fetchLiveScore, 60_000); // refresh every minute
-      return () => clearInterval(interval);
-    }
-  }, [matchStarted, matchEnded, fetchLiveScore]);
+    return allTeams;
+  }, [allTeams, scoresByUser, teamScores]);
 
   if (!group || !match) {
     return (
@@ -111,7 +89,6 @@ export function MatchDetailPage() {
   const pool = memberCount * entryAmount;
   const payoutTable = calculatePayouts(memberCount, entryAmount);
 
-  // For "Enter Results" preview
   const assignedRanks = Object.values(rankings);
   const allAssigned = assignedRanks.length === memberCount && new Set(assignedRanks).size === memberCount;
 
@@ -119,9 +96,7 @@ export function MatchDetailPage() {
     setRankings((prev) => {
       const next = { ...prev };
       for (const [key, val] of Object.entries(next)) {
-        if (val === rank && key !== memberId) {
-          delete next[key];
-        }
+        if (val === rank && key !== memberId) delete next[key];
       }
       next[memberId] = rank;
       return next;
@@ -148,39 +123,51 @@ export function MatchDetailPage() {
     }
   }
 
-  // Calculate team points from match points
-  const teamPointsMap = useMemo(() => {
-    if (!matchPoints) return {};
-    const map: Record<string, { totalPoints: number; playerPoints: Record<string, number> }> = {};
-    for (const team of allTeams) {
-      const playerIds = team.players.map((p) => p.playerId);
-      map[team.userId] = cricapi.calculateTeamPoints(matchPoints, playerIds, team.captainId, team.viceCaptainId);
+  // Auto-submit results from live scoring (admin action)
+  async function handleAutoSubmitResults() {
+    if (!isAdmin || teamScores.length === 0 || submitting) return;
+    setSubmitting(true);
+    try {
+      // Rank by fantasy points, include members who didn't create teams at bottom
+      const membersWithTeams = teamScores.map((ts, i) => ({
+        userId: ts.userId,
+        rank: i + 1,
+      }));
+      const membersWithoutTeams = group!.members
+        .filter((m) => !membersWithTeams.find((t) => t.userId === m.id))
+        .map((m, i) => ({
+          userId: m.id,
+          rank: membersWithTeams.length + i + 1,
+        }));
+
+      const allRanked = [...membersWithTeams, ...membersWithoutTeams];
+      const rankedResults = allRanked.map((r) => {
+        const payout = payoutTable[r.rank - 1] || 0;
+        return { userId: r.userId, rank: r.rank, payout, netAmount: payout - entryAmount };
+      });
+
+      await submitResults(groupId!, matchId, rankedResults);
+    } catch (e) {
+      console.error('Failed to auto-submit results:', e);
+    } finally {
+      setSubmitting(false);
     }
-    return map;
-  }, [matchPoints, allTeams]);
+  }
 
-  // Sort teams by points
-  const sortedTeams = useMemo(() => {
-    return [...allTeams].sort((a, b) => {
-      const pa = teamPointsMap[a.userId]?.totalPoints ?? 0;
-      const pb = teamPointsMap[b.userId]?.totalPoints ?? 0;
-      return pb - pa;
-    });
-  }, [allTeams, teamPointsMap]);
-
-  // Render a member's team inline
-  function renderMemberTeam(team: typeof allTeams[0], rank?: number) {
+  // ─── Render member team (expandable) ──────────────────────────
+  function renderMemberTeam(team: typeof allTeams[0], rank: number) {
     const member = group!.members.find((m) => m.id === team.userId);
     if (!member) return null;
     const colors = getAvatarColor(member.name);
     const isMe = member.id === currentUser.id;
     const isExpanded = expandedTeam === team.userId;
-    const pts = teamPointsMap[team.userId];
+    const score = scoresByUser[team.userId];
 
     const picks = team.players.map((pick) => {
       const player = IPL_PLAYERS.find((p) => p.id === pick.playerId);
-      return player ? { ...player, pickRole: pick.role, fantasyPts: pts?.playerPoints[pick.playerId] ?? null } : null;
-    }).filter(Boolean) as (typeof IPL_PLAYERS[0] & { pickRole: string; fantasyPts: number | null })[];
+      const playerScore = score?.playerScores.find((ps) => ps.playerId === pick.playerId);
+      return player ? { ...player, pickRole: pick.role, pts: playerScore } : null;
+    }).filter(Boolean) as (typeof IPL_PLAYERS[0] & { pickRole: string; pts?: TeamScore['playerScores'][0] })[];
 
     const roleOrder = ['WK', 'BAT', 'AR', 'BOWL'];
     picks.sort((a, b) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role));
@@ -192,15 +179,13 @@ export function MatchDetailPage() {
           className="w-full flex items-center gap-3 bg-white rounded-2xl card-shadow px-4 py-3 active:scale-[0.99] transition-all"
         >
           {/* Rank */}
-          {rank !== undefined && (
-            <div className="w-6 text-center shrink-0">
-              {rank === 1 ? (
-                <Trophy className="text-amber-500" size={16} />
-              ) : (
-                <span className="font-headline font-bold text-on-surface-variant text-xs">#{rank}</span>
-              )}
-            </div>
-          )}
+          <div className="w-6 text-center shrink-0">
+            {rank === 1 ? (
+              <Trophy className="text-amber-500" size={16} />
+            ) : (
+              <span className="font-headline font-bold text-on-surface-variant text-xs">#{rank}</span>
+            )}
+          </div>
 
           {/* Avatar */}
           <div
@@ -215,25 +200,21 @@ export function MatchDetailPage() {
           </p>
 
           {/* Points */}
-          {pts && (
+          {score && (
             <span className="font-headline font-bold text-sm text-primary shrink-0">
-              {pts.totalPoints} pts
+              {score.totalPoints} pts
             </span>
           )}
 
-          {/* Expand icon */}
           {isExpanded ? <ChevronUp size={16} className="text-on-surface-variant shrink-0" /> : <ChevronDown size={16} className="text-on-surface-variant shrink-0" />}
         </button>
 
-        {/* Expanded team */}
+        {/* Expanded player list */}
         {isExpanded && (
           <div className="mt-1 bg-white rounded-2xl card-shadow px-4 py-3 animate-fade-in">
             {picks.map((player) => {
               const isCaptain = team.captainId === player.id;
               const isVC = team.viceCaptainId === player.id;
-              const multiplier = isCaptain ? 2 : isVC ? 1.5 : 1;
-              const rawPts = player.fantasyPts;
-              const displayPts = rawPts !== null ? Math.round(rawPts * multiplier * 10) / 10 : null;
 
               return (
                 <div key={player.id} className="flex items-center gap-2 py-[6px]">
@@ -247,33 +228,34 @@ export function MatchDetailPage() {
                   {isVC && (
                     <span className="text-[8px] font-bold text-white bg-on-surface-variant rounded-full w-[16px] h-[16px] flex items-center justify-center shrink-0">V</span>
                   )}
-                  {displayPts !== null && (
-                    <span className={`text-xs font-bold shrink-0 min-w-[35px] text-right ${displayPts > 0 ? 'text-owed' : displayPts < 0 ? 'text-owe' : 'text-on-surface-variant'}`}>
-                      {displayPts > 0 ? '+' : ''}{displayPts}
-                    </span>
+                  {player.pts && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Breakdown tooltip */}
+                      <span className="text-[9px] text-on-surface-variant">
+                        {player.pts.breakdown.runs > 0 ? `${player.pts.breakdown.runs}r` : ''}
+                        {player.pts.breakdown.wickets > 0 ? ` ${player.pts.breakdown.wickets}w` : ''}
+                        {player.pts.breakdown.catches > 0 ? ` ${player.pts.breakdown.catches}c` : ''}
+                      </span>
+                      <span className={`text-xs font-bold min-w-[30px] text-right ${
+                        player.pts.totalPoints > 0 ? 'text-owed' : player.pts.totalPoints < 0 ? 'text-owe' : 'text-on-surface-variant'
+                      }`}>
+                        {player.pts.totalPoints}
+                      </span>
+                    </div>
                   )}
                 </div>
               );
             })}
+            {score && (
+              <div className="mt-2 pt-2 border-t border-surface-dim flex items-center justify-between">
+                <span className="text-xs text-on-surface-variant">Total</span>
+                <span className="font-headline font-bold text-sm text-primary">{score.totalPoints} pts</span>
+              </div>
+            )}
           </div>
         )}
       </div>
     );
-  }
-
-  // Fetch fantasy points from CricAPI
-  async function handleFetchPoints() {
-    if (!match?.cricapiMatchId || calculatingPoints) return;
-    setCalculatingPoints(true);
-    try {
-      const pts = await cricapi.getMatchPoints(match.cricapiMatchId);
-      setMatchPoints(pts);
-    } catch (e) {
-      console.error('Failed to fetch match points:', e);
-      alert('Failed to fetch points from CricAPI. The match might not have started or ended yet.');
-    } finally {
-      setCalculatingPoints(false);
-    }
   }
 
   return (
@@ -289,10 +271,7 @@ export function MatchDetailPage() {
               <div className="flex-1 text-center">
                 <div
                   className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center text-sm font-bold shadow-md"
-                  style={{
-                    backgroundColor: home?.color || '#666',
-                    color: home?.textColor || '#fff',
-                  }}
+                  style={{ backgroundColor: home?.color || '#666', color: home?.textColor || '#fff' }}
                 >
                   {home?.code || match.teamHome.slice(0, 3).toUpperCase()}
                 </div>
@@ -304,7 +283,6 @@ export function MatchDetailPage() {
                 )}
               </div>
 
-              {/* VS */}
               <div className="text-center shrink-0">
                 <p className="font-headline font-bold text-on-surface-variant text-2xl">VS</p>
               </div>
@@ -313,10 +291,7 @@ export function MatchDetailPage() {
               <div className="flex-1 text-center">
                 <div
                   className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center text-sm font-bold shadow-md"
-                  style={{
-                    backgroundColor: away?.color || '#666',
-                    color: away?.textColor || '#fff',
-                  }}
+                  style={{ backgroundColor: away?.color || '#666', color: away?.textColor || '#fff' }}
                 >
                   {away?.code || match.teamAway.slice(0, 3).toUpperCase()}
                 </div>
@@ -330,13 +305,19 @@ export function MatchDetailPage() {
             </div>
 
             {/* Live status */}
-            {liveScore?.status && (
+            {liveScore?.status ? (
               <div className="text-center mt-3 pt-3 border-t border-surface-dim">
-                <p className="text-xs text-primary font-medium">{liveScore.status}</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <p className="text-xs text-primary font-medium">{liveScore.status}</p>
+                </div>
+                {lastUpdated && (
+                  <p className="text-[10px] text-on-surface-variant/50 mt-1">
+                    Updated {Math.round((Date.now() - lastUpdated) / 1000)}s ago
+                  </p>
+                )}
               </div>
-            )}
-
-            {!liveScore?.status && (
+            ) : (
               <div className="text-center mt-4 pt-4 border-t border-surface-dim">
                 <p className="text-sm text-on-surface-variant">
                   {new Date(match.matchDate).toLocaleDateString('en-IN', {
@@ -351,20 +332,17 @@ export function MatchDetailPage() {
                     minute: '2-digit',
                   })}
                 </p>
-                <p className="text-xs text-on-surface-variant/60 mt-1 truncate">
-                  {match.venue}
-                </p>
+                <p className="text-xs text-on-surface-variant/60 mt-1 truncate">{match.venue}</p>
               </div>
             )}
           </Card>
         </div>
 
-        {/* Results or Enter Results */}
+        {/* ─── Results finalized ─── */}
         {hasResults ? (
           <>
-            {/* Rankings Table */}
             <section className="mb-6">
-              <p className="text-label text-on-surface-variant mb-3">RANKINGS</p>
+              <p className="text-label text-on-surface-variant mb-3">FINAL RANKINGS</p>
               <Card className="!p-0">
                 {existingResults
                   .sort((a, b) => a.rank - b.rank)
@@ -400,16 +378,11 @@ export function MatchDetailPage() {
                           {isMe ? 'You' : member.name}
                         </p>
                         <div className="text-right shrink-0">
-                          <p className="text-xs text-on-surface-variant">
-                            {formatAmount(result.payout)}
-                          </p>
-                          <p
-                            className={`font-headline font-bold text-sm ${
-                              netAmount > 0 ? 'text-owed' : netAmount < 0 ? 'text-owe' : 'text-on-surface-variant'
-                            }`}
-                          >
-                            {netAmount >= 0 ? '+' : ''}
-                            {formatAmount(netAmount)}
+                          <p className="text-xs text-on-surface-variant">{formatAmount(result.payout)}</p>
+                          <p className={`font-headline font-bold text-sm ${
+                            netAmount > 0 ? 'text-owed' : netAmount < 0 ? 'text-owe' : 'text-on-surface-variant'
+                          }`}>
+                            {netAmount >= 0 ? '+' : ''}{formatAmount(netAmount)}
                           </p>
                         </div>
                       </div>
@@ -426,156 +399,101 @@ export function MatchDetailPage() {
           </>
         ) : (
           <>
-            {/* Fantasy team button + countdown */}
+            {/* ─── Pre-match: team creation ─── */}
             <DeadlineSection
               matchDate={match.matchDate}
               hasTeam={!!existingFantasyTeam}
               onCreateTeam={() => navigate(`/group/${groupId}/match/${matchId}/create-team`)}
             />
 
-            {/* Your team preview — only if match hasn't started */}
-            {existingFantasyTeam && !matchStarted && (() => {
-              const homeTeam = getTeamByName(match.teamHome);
-              const awayTeam = getTeamByName(match.teamAway);
-              const homeCode = homeTeam?.code ?? match.teamHome.slice(0, 3).toUpperCase();
-              const awayCode = awayTeam?.code ?? match.teamAway.slice(0, 3).toUpperCase();
+            {/* Your team preview — only before match starts */}
+            {existingFantasyTeam && !matchStarted && (
+              <YourTeamPreview
+                team={existingFantasyTeam}
+                match={match}
+                groupId={groupId!}
+                matchId={matchId}
+                navigate={navigate}
+              />
+            )}
 
-              const picks = existingFantasyTeam.players.map((pick) => {
-                const player = IPL_PLAYERS.find((p) => p.id === pick.playerId);
-                return player ? { ...player, pickRole: pick.role } : null;
-              }).filter(Boolean) as (typeof IPL_PLAYERS[0] & { pickRole: string })[];
-
-              const homePicks = picks.filter((p) => p.team === homeCode);
-              const awayPicks = picks.filter((p) => p.team === awayCode);
-              const totalCredits = picks.reduce((s, p) => s + p.credits, 0);
-
-              const roleOrder = ['WK', 'BAT', 'AR', 'BOWL'];
-              const sortByRole = (a: typeof picks[0], b: typeof picks[0]) =>
-                roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role);
-
-              homePicks.sort(sortByRole);
-              awayPicks.sort(sortByRole);
-
-              const renderPlayer = (player: typeof picks[0]) => {
-                const isCaptain = existingFantasyTeam.captainId === player.id;
-                const isVC = existingFantasyTeam.viceCaptainId === player.id;
-                return (
-                  <div key={player.id} className="flex items-center gap-1.5 py-[5px]">
-                    <span className="text-[9px] font-bold text-on-surface-variant/50 w-6 shrink-0">{player.role}</span>
-                    <span className="text-[13px] text-on-surface flex-1 truncate font-medium">
-                      {player.name.split(' ').pop()}
-                    </span>
-                    <span className="text-[10px] text-on-surface-variant shrink-0">{player.credits}</span>
-                    {isCaptain && (
-                      <span className="text-[8px] font-bold text-white bg-primary rounded-full w-[18px] h-[18px] flex items-center justify-center shrink-0">C</span>
-                    )}
-                    {isVC && (
-                      <span className="text-[8px] font-bold text-white bg-on-surface-variant rounded-full w-[18px] h-[18px] flex items-center justify-center shrink-0">V</span>
-                    )}
-                    {!isCaptain && !isVC && <span className="w-[18px] shrink-0" />}
-                  </div>
-                );
-              };
-
-              const deadline = match.matchDate - 30 * 60 * 1000;
-              const canEdit = Date.now() <= deadline;
-
-              return (
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-label text-on-surface-variant">YOUR TEAM · {totalCredits}/100 cr</p>
-                    {canEdit && (
-                      <button
-                        onClick={() => navigate(`/group/${groupId}/match/${matchId}/create-team`)}
-                        className="flex items-center gap-1 text-xs font-semibold text-primary"
-                      >
-                        <Pencil size={12} /> Edit
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="flex-1 bg-white rounded-2xl card-shadow p-3 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-surface-dim">
-                        <div
-                          className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold shrink-0"
-                          style={{ backgroundColor: homeTeam?.color ?? '#666', color: homeTeam?.textColor ?? '#fff' }}
-                        >
-                          {homeCode.slice(0, 2)}
-                        </div>
-                        <span className="text-xs font-bold text-on-surface">{homeCode}</span>
-                        <span className="text-[10px] text-on-surface-variant ml-auto">{homePicks.length}</span>
-                      </div>
-                      {homePicks.map(renderPlayer)}
-                    </div>
-                    <div className="flex-1 bg-white rounded-2xl card-shadow p-3 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-surface-dim">
-                        <div
-                          className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold shrink-0"
-                          style={{ backgroundColor: awayTeam?.color ?? '#666', color: awayTeam?.textColor ?? '#fff' }}
-                        >
-                          {awayCode.slice(0, 2)}
-                        </div>
-                        <span className="text-xs font-bold text-on-surface">{awayCode}</span>
-                        <span className="text-[10px] text-on-surface-variant ml-auto">{awayPicks.length}</span>
-                      </div>
-                      {awayPicks.map(renderPlayer)}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* All members' teams — visible after match starts */}
+            {/* ─── Live/Post-match: all teams + auto scoring ─── */}
             {matchStarted && allTeams.length > 0 && (
               <section className="mb-6">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-label text-on-surface-variant">
-                    {matchPoints ? 'FANTASY LEADERBOARD' : 'ALL TEAMS'} ({allTeams.length})
+                    {teamScores.length > 0 ? 'LIVE LEADERBOARD' : 'ALL TEAMS'} ({allTeams.length})
                   </p>
-                  {match.cricapiMatchId && !matchPoints && (
+                  {teamScores.length > 0 && (
                     <button
-                      onClick={handleFetchPoints}
-                      disabled={calculatingPoints}
-                      className="flex items-center gap-1 text-xs font-semibold text-primary disabled:opacity-50"
-                    >
-                      <Zap size={12} />
-                      {calculatingPoints ? 'Loading...' : 'Get Points'}
-                    </button>
-                  )}
-                  {matchPoints && (
-                    <button
-                      onClick={handleFetchPoints}
-                      disabled={calculatingPoints}
+                      onClick={refreshScoring}
+                      disabled={scoringLoading}
                       className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant disabled:opacity-50"
                     >
-                      {calculatingPoints ? 'Refreshing...' : 'Refresh'}
+                      <RefreshCw size={12} className={scoringLoading ? 'animate-spin' : ''} />
+                      {scoringLoading ? '' : 'Refresh'}
                     </button>
                   )}
                 </div>
-                {sortedTeams.map((team, i) => renderMemberTeam(team, matchPoints ? i + 1 : undefined))}
+
+                {scoringLoading && teamScores.length === 0 && (
+                  <div className="text-center py-6">
+                    <RefreshCw size={20} className="animate-spin mx-auto text-primary mb-2" />
+                    <p className="text-xs text-on-surface-variant">Fetching live scores...</p>
+                  </div>
+                )}
+
+                {sortedTeams.map((team, i) => renderMemberTeam(team, i + 1))}
+
+                {/* Auto-submit button for admin after match ends */}
+                {isAdmin && matchEnded && teamScores.length > 0 && (
+                  <div className="mt-4">
+                    <Button
+                      onClick={handleAutoSubmitResults}
+                      disabled={submitting}
+                      fullWidth
+                      icon={<Trophy size={18} />}
+                    >
+                      {submitting ? 'Submitting...' : 'Finalize Results'}
+                    </Button>
+                    <p className="text-[10px] text-on-surface-variant text-center mt-2">
+                      This will lock rankings and calculate payouts
+                    </p>
+                  </div>
+                )}
               </section>
             )}
 
-            {/* Admin actions */}
-            {isAdmin && matchStarted && (
-              <div className="space-y-3 mb-6">
-                {!match.cricapiMatchId && (
-                  <p className="text-xs text-on-surface-variant text-center">
-                    CricAPI match ID not mapped. Use manual ranking below.
-                  </p>
+            {/* No API match ID — show manual fallback for admin */}
+            {matchStarted && !match.cricapiMatchId && allTeams.length > 0 && (
+              <div className="mb-4 bg-amber-50 rounded-2xl p-4">
+                <p className="text-xs text-amber-800 mb-2">
+                  Live scoring unavailable — CricAPI match not mapped.
+                </p>
+                {isAdmin && (
+                  <Button
+                    onClick={() => setShowEnterResults(true)}
+                    fullWidth
+                    variant="secondary"
+                    icon={<Trophy size={18} />}
+                  >
+                    Enter Results Manually
+                  </Button>
                 )}
-                <Button
-                  onClick={() => setShowEnterResults(true)}
-                  fullWidth
-                  variant="secondary"
-                  icon={<Trophy size={18} />}
-                >
-                  Enter Results Manually
-                </Button>
               </div>
             )}
 
-            {!matchStarted && !existingFantasyTeam && !isAdmin && (
+            {/* Admin manual fallback even with API */}
+            {isAdmin && matchStarted && match.cricapiMatchId && (
+              <button
+                onClick={() => setShowEnterResults(true)}
+                className="w-full text-xs text-on-surface-variant/60 text-center py-2 mt-2"
+              >
+                Enter results manually instead
+              </button>
+            )}
+
+            {!matchStarted && !existingFantasyTeam && (
               <div className="text-center py-8">
                 <p className="text-on-surface-variant">
                   Create your team before the match starts to participate!
@@ -595,21 +513,17 @@ export function MatchDetailPage() {
         )}
       </main>
 
-      {/* Bottom Sheet: Enter Results */}
+      {/* ─── Bottom Sheet: Manual Results ─── */}
       {showEnterResults && (
         <>
           <div
             className="fixed inset-0 bg-black/40 z-40 animate-fade-in"
             onClick={() => { setShowEnterResults(false); setRankings({}); }}
           />
-
           <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up">
             <div className="max-w-2xl mx-auto bg-white rounded-t-3xl shadow-2xl px-6 pt-4 pb-8 max-h-[85vh] overflow-y-auto">
               <div className="w-10 h-1 rounded-full bg-surface-dim mx-auto mb-5" />
-
-              <h3 className="font-headline font-bold text-lg text-on-surface mb-2">
-                Enter Rankings
-              </h3>
+              <h3 className="font-headline font-bold text-lg text-on-surface mb-2">Enter Rankings</h3>
               <p className="text-sm text-on-surface-variant mb-5">
                 Assign rank to each member based on their fantasy performance.
               </p>
@@ -622,19 +536,13 @@ export function MatchDetailPage() {
                   const net = rank ? payout - entryAmount : 0;
 
                   return (
-                    <div
-                      key={member.id}
-                      className="flex items-center gap-3 bg-surface-dim/30 rounded-2xl p-3"
-                    >
-                      <div
-                        className={`w-9 h-9 rounded-full ${colors.bg} ${colors.text} flex items-center justify-center text-sm font-bold shrink-0`}
-                      >
+                    <div key={member.id} className="flex items-center gap-3 bg-surface-dim/30 rounded-2xl p-3">
+                      <div className={`w-9 h-9 rounded-full ${colors.bg} ${colors.text} flex items-center justify-center text-sm font-bold shrink-0`}>
                         {getInitial(member.name)}
                       </div>
                       <p className="flex-1 font-medium text-on-surface text-sm truncate">
                         {member.id === currentUser.id ? 'You' : member.name}
                       </p>
-
                       <select
                         value={rank || ''}
                         onChange={(e) => handleRankChange(member.id, Number(e.target.value))}
@@ -647,15 +555,11 @@ export function MatchDetailPage() {
                           </option>
                         ))}
                       </select>
-
                       {rank && (
-                        <span
-                          className={`text-sm font-bold min-w-[60px] text-right ${
-                            net > 0 ? 'text-owed' : net < 0 ? 'text-owe' : 'text-on-surface-variant'
-                          }`}
-                        >
-                          {net >= 0 ? '+' : ''}
-                          {formatAmount(net)}
+                        <span className={`text-sm font-bold min-w-[60px] text-right ${
+                          net > 0 ? 'text-owed' : net < 0 ? 'text-owe' : 'text-on-surface-variant'
+                        }`}>
+                          {net >= 0 ? '+' : ''}{formatAmount(net)}
                         </span>
                       )}
                     </div>
@@ -673,18 +577,10 @@ export function MatchDetailPage() {
               )}
 
               <div className="flex gap-3">
-                <Button
-                  variant="secondary"
-                  onClick={() => { setShowEnterResults(false); setRankings({}); }}
-                  fullWidth
-                >
+                <Button variant="secondary" onClick={() => { setShowEnterResults(false); setRankings({}); }} fullWidth>
                   Cancel
                 </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={!allAssigned || submitting}
-                  fullWidth
-                >
+                <Button onClick={handleSubmit} disabled={!allAssigned || submitting} fullWidth>
                   {submitting ? 'Submitting...' : 'Confirm Results'}
                 </Button>
               </div>
@@ -692,6 +588,102 @@ export function MatchDetailPage() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/* ─── Your team preview (pre-match) ─── */
+function YourTeamPreview({
+  team,
+  match,
+  groupId,
+  matchId,
+  navigate,
+}: {
+  team: any;
+  match: any;
+  groupId: string;
+  matchId: number;
+  navigate: any;
+}) {
+  const homeTeam = getTeamByName(match.teamHome);
+  const awayTeam = getTeamByName(match.teamAway);
+  const homeCode = homeTeam?.code ?? match.teamHome.slice(0, 3).toUpperCase();
+  const awayCode = awayTeam?.code ?? match.teamAway.slice(0, 3).toUpperCase();
+
+  const picks = team.players.map((pick: any) => {
+    const player = IPL_PLAYERS.find((p) => p.id === pick.playerId);
+    return player ? { ...player, pickRole: pick.role } : null;
+  }).filter(Boolean);
+
+  const homePicks = picks.filter((p: any) => p.team === homeCode);
+  const awayPicks = picks.filter((p: any) => p.team === awayCode);
+  const totalCredits = picks.reduce((s: number, p: any) => s + p.credits, 0);
+
+  const roleOrder = ['WK', 'BAT', 'AR', 'BOWL'];
+  const sortByRole = (a: any, b: any) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role);
+  homePicks.sort(sortByRole);
+  awayPicks.sort(sortByRole);
+
+  const deadline = match.matchDate - 30 * 60 * 1000;
+  const canEdit = Date.now() <= deadline;
+
+  const renderPlayer = (player: any) => {
+    const isCaptain = team.captainId === player.id;
+    const isVC = team.viceCaptainId === player.id;
+    return (
+      <div key={player.id} className="flex items-center gap-1.5 py-[5px]">
+        <span className="text-[9px] font-bold text-on-surface-variant/50 w-6 shrink-0">{player.role}</span>
+        <span className="text-[13px] text-on-surface flex-1 truncate font-medium">{player.name.split(' ').pop()}</span>
+        <span className="text-[10px] text-on-surface-variant shrink-0">{player.credits}</span>
+        {isCaptain && <span className="text-[8px] font-bold text-white bg-primary rounded-full w-[18px] h-[18px] flex items-center justify-center shrink-0">C</span>}
+        {isVC && <span className="text-[8px] font-bold text-white bg-on-surface-variant rounded-full w-[18px] h-[18px] flex items-center justify-center shrink-0">V</span>}
+        {!isCaptain && !isVC && <span className="w-[18px] shrink-0" />}
+      </div>
+    );
+  };
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-label text-on-surface-variant">YOUR TEAM · {totalCredits}/100 cr</p>
+        {canEdit && (
+          <button
+            onClick={() => navigate(`/group/${groupId}/match/${matchId}/create-team`)}
+            className="flex items-center gap-1 text-xs font-semibold text-primary"
+          >
+            <Pencil size={12} /> Edit
+          </button>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1 bg-white rounded-2xl card-shadow p-3 min-w-0">
+          <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-surface-dim">
+            <div
+              className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold shrink-0"
+              style={{ backgroundColor: homeTeam?.color ?? '#666', color: homeTeam?.textColor ?? '#fff' }}
+            >
+              {homeCode.slice(0, 2)}
+            </div>
+            <span className="text-xs font-bold text-on-surface">{homeCode}</span>
+            <span className="text-[10px] text-on-surface-variant ml-auto">{homePicks.length}</span>
+          </div>
+          {homePicks.map(renderPlayer)}
+        </div>
+        <div className="flex-1 bg-white rounded-2xl card-shadow p-3 min-w-0">
+          <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-surface-dim">
+            <div
+              className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold shrink-0"
+              style={{ backgroundColor: awayTeam?.color ?? '#666', color: awayTeam?.textColor ?? '#fff' }}
+            >
+              {awayCode.slice(0, 2)}
+            </div>
+            <span className="text-xs font-bold text-on-surface">{awayCode}</span>
+            <span className="text-[10px] text-on-surface-variant ml-auto">{awayPicks.length}</span>
+          </div>
+          {awayPicks.map(renderPlayer)}
+        </div>
+      </div>
     </div>
   );
 }

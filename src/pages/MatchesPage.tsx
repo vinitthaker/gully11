@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, Clock } from 'lucide-react';
+import { CheckCircle, Clock, Radio } from 'lucide-react';
 import { useStore } from '../store';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
@@ -16,25 +16,30 @@ export function MatchesPage() {
   const groupResults = matchResults.filter((r) => r.groupId === id);
   const completedMatchIds = new Set(groupResults.map((r) => r.matchId));
 
-  const { upcoming, completed } = useMemo(() => {
+  const now = Date.now();
+  const { upcoming, live, completed } = useMemo(() => {
     const up: typeof iplSchedule = [];
+    const lv: typeof iplSchedule = [];
     const done: typeof iplSchedule = [];
 
     for (const match of iplSchedule) {
       if (completedMatchIds.has(match.id)) {
         done.push(match);
+      } else if (now > match.matchDate && now < match.matchDate + 4 * 60 * 60 * 1000) {
+        lv.push(match);
       } else {
         up.push(match);
       }
     }
 
     up.sort((a, b) => a.matchDate - b.matchDate);
+    lv.sort((a, b) => a.matchDate - b.matchDate);
     done.sort((a, b) => b.matchDate - a.matchDate);
 
-    return { upcoming: up, completed: done };
-  }, [iplSchedule, completedMatchIds]);
+    return { upcoming: up, live: lv, completed: done };
+  }, [iplSchedule, completedMatchIds, now]);
 
-  function MatchCard({ match, isCompleted }: { match: typeof iplSchedule[0]; isCompleted: boolean }) {
+  function MatchCard({ match, isCompleted, isLive }: { match: typeof iplSchedule[0]; isCompleted: boolean; isLive?: boolean }) {
     const home = getTeamByName(match.teamHome);
     const away = getTeamByName(match.teamAway);
     const dateStr = new Date(match.matchDate).toLocaleDateString('en-IN', {
@@ -60,6 +65,11 @@ export function MatchesPage() {
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-owed bg-green-50 px-2 py-0.5 rounded-full">
               <CheckCircle size={12} />
               Results
+            </span>
+          ) : isLive ? (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+              <Radio size={12} className="animate-pulse" />
+              LIVE
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-on-surface-variant bg-surface-dim px-2 py-0.5 rounded-full">
@@ -112,6 +122,21 @@ export function MatchesPage() {
       <Header variant="page" title="Matches" showBack />
 
       <main className="px-6 pb-8 max-w-2xl mx-auto">
+        {/* Live */}
+        {live.length > 0 && (
+          <section className="mt-2 mb-6">
+            <p className="text-label text-red-600 mb-3 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              LIVE ({live.length})
+            </p>
+            <div className="space-y-3">
+              {live.map((match) => (
+                <MatchCard key={match.id} match={match} isCompleted={false} isLive />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Upcoming */}
         {upcoming.length > 0 && (
           <section className="mt-2 mb-6">
