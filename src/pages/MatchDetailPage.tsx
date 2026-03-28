@@ -28,6 +28,7 @@ export function MatchDetailPage() {
   const [rankings, setRankings] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
+  const [pointOverrides, setPointOverrides] = useState<Record<string, number>>({});
 
   const existingResults = useMemo(() => {
     return matchResults.filter((r) => r.groupId === groupId && r.matchId === matchId);
@@ -127,15 +128,34 @@ export function MatchDetailPage() {
   }
 
   // Auto-submit results from live scoring (admin action)
+  // Get effective points (override or calculated)
+  function getEffectivePoints(userId: string): number {
+    if (pointOverrides[userId] !== undefined) return pointOverrides[userId];
+    return scoresByUser[userId]?.totalPoints ?? 0;
+  }
+
+  // Sort teams by effective points (respecting overrides)
+  const finalSortedTeams = useMemo(() => {
+    if (Object.keys(pointOverrides).length > 0 || teamScores.length > 0) {
+      return [...allTeams].sort((a, b) => getEffectivePoints(b.userId) - getEffectivePoints(a.userId));
+    }
+    return sortedTeams;
+  }, [allTeams, pointOverrides, teamScores, sortedTeams]);
+
   async function handleAutoSubmitResults() {
-    if (!isAdmin || teamScores.length === 0 || submitting) return;
+    if (!isAdmin || submitting) return;
     setSubmitting(true);
     try {
-      // Rank by fantasy points, include members who didn't create teams at bottom
-      const membersWithTeams = teamScores.map((ts, i) => ({
-        userId: ts.userId,
+      // Build ranked list using effective points (with overrides)
+      const teamsWithPoints = allTeams
+        .map((t) => ({ userId: t.userId, points: getEffectivePoints(t.userId) }))
+        .sort((a, b) => b.points - a.points);
+
+      const membersWithTeams = teamsWithPoints.map((t, i) => ({
+        userId: t.userId,
         rank: i + 1,
       }));
+
       const membersWithoutTeams = group!.members
         .filter((m) => !membersWithTeams.find((t) => t.userId === m.id))
         .map((m, i) => ({
@@ -150,6 +170,7 @@ export function MatchDetailPage() {
       });
 
       await submitResults(groupId!, matchId, rankedResults);
+      setPointOverrides({});
     } catch (e) {
       console.error('Failed to auto-submit results:', e);
     } finally {
@@ -204,11 +225,24 @@ export function MatchDetailPage() {
             {isMe ? 'You' : member.name}
           </p>
 
-          {/* Points */}
-          {score && (
-            <span className="font-headline font-bold text-sm text-primary shrink-0">
-              {score.totalPoints} pts
-            </span>
+          {/* Points — editable for admin */}
+          {(score || pointOverrides[team.userId] !== undefined) && (
+            isAdmin && matchEnded ? (
+              <input
+                type="number"
+                value={pointOverrides[team.userId] !== undefined ? pointOverrides[team.userId] : (score?.totalPoints ?? 0)}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setPointOverrides((prev) => ({ ...prev, [team.userId]: Number(e.target.value) || 0 }));
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-16 text-right font-headline font-bold text-sm text-primary bg-surface-dim/50 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-primary/30 shrink-0"
+              />
+            ) : (
+              <span className="font-headline font-bold text-sm text-primary shrink-0">
+                {getEffectivePoints(team.userId)} pts
+              </span>
+            )
           )}
 
           {isExpanded ? <ChevronUp size={16} className="text-on-surface-variant shrink-0" /> : <ChevronDown size={16} className="text-on-surface-variant shrink-0" />}
@@ -471,11 +505,24 @@ export function MatchDetailPage() {
                   </div>
                 )}
 
-                {sortedTeams.map((team, i) => renderMemberTeam(team, i + 1))}
+                {finalSortedTeams.map((team, i) => renderMemberTeam(team, i + 1))}
 
                 {/* Auto-submit button for admin after match ends */}
-                {isAdmin && matchEnded && teamScores.length > 0 && (
+                {isAdmin && matchEnded && (teamScores.length > 0 || Object.keys(pointOverrides).length > 0) && (
                   <div className="mt-4">
+                    {Object.keys(pointOverrides).length > 0 && (
+                      <div className="bg-amber-50 rounded-xl p-3 mb-3 flex items-center justify-between">
+                        <p className="text-xs text-amber-800">
+                          {Object.keys(pointOverrides).length} point override(s) applied
+                        </p>
+                        <button
+                          onClick={() => setPointOverrides({})}
+                          className="text-xs font-semibold text-amber-800 underline"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    )}
                     <Button
                       onClick={handleAutoSubmitResults}
                       disabled={submitting}
@@ -485,7 +532,7 @@ export function MatchDetailPage() {
                       {submitting ? 'Submitting...' : 'Finalize Results'}
                     </Button>
                     <p className="text-[10px] text-on-surface-variant text-center mt-2">
-                      This will lock rankings and calculate payouts
+                      {isAdmin && matchEnded ? 'Edit points above if needed, then finalize' : 'This will lock rankings and calculate payouts'}
                     </p>
                   </div>
                 )}
