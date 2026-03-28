@@ -84,6 +84,16 @@ export function MatchDetailPage() {
     return allTeams;
   }, [allTeams, scoresByUser, teamScores]);
 
+  const isDataLoading = iplSchedule.length === 0 || groups.length === 0;
+
+  if (isDataLoading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <RefreshCw size={24} className="animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (!group || !match) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">

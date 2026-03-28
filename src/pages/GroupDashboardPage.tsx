@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, Trophy, ArrowRightLeft, Users, Settings, ChevronRight, Crown, Info, ChevronDown } from 'lucide-react';
+import { Calendar, Trophy, ArrowRightLeft, Users, Settings, ChevronRight, Crown, Info, ChevronDown, RefreshCw } from 'lucide-react';
 import { useStore } from '../store';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
@@ -17,6 +17,16 @@ export function GroupDashboardPage() {
 
   const group = groups.find((g) => g.id === id);
   usePageTitle(group ? `${group.name} | Gully11` : 'Gully11');
+
+  const isDataLoading = groups.length === 0 || iplSchedule.length === 0;
+
+  if (isDataLoading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <RefreshCw size={24} className="animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!group) {
     return (
