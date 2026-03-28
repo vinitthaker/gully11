@@ -43,7 +43,7 @@ interface AppState {
   ) => Promise<void>;
 
   // Fantasy team actions
-  saveFantasyTeam: (team: FantasyTeam) => void;
+  saveFantasyTeam: (team: FantasyTeam) => Promise<void>;
   getFantasyTeam: (groupId: string, matchId: number) => FantasyTeam | undefined;
   getFantasyTeamsByMatch: (groupId: string, matchId: number) => FantasyTeam[];
 
@@ -192,15 +192,53 @@ export const useStore = create<AppState>()(
         }));
       },
 
-      saveFantasyTeam: (team) => {
+      saveFantasyTeam: async (team) => {
+        const state = get();
+
+        // Save to Supabase first
+        if (state.isAuthenticated && state.authUser) {
+          try {
+            const existingId = state.fantasyTeams.find(
+              (t) => t.groupId === team.groupId && t.matchId === team.matchId && t.userId === team.userId
+            )?.id;
+
+            const saved = await db.saveFantasyTeam(
+              team.groupId,
+              team.matchId,
+              state.authUser.id,
+              team.players,
+              team.captainId,
+              team.viceCaptainId,
+              existingId
+            );
+
+            // Update local state with Supabase-generated ID
+            set((s) => {
+              const idx = s.fantasyTeams.findIndex(
+                (t) => t.groupId === team.groupId && t.matchId === team.matchId && t.userId === team.userId
+              );
+              if (idx >= 0) {
+                const updated = [...s.fantasyTeams];
+                updated[idx] = saved;
+                return { fantasyTeams: updated };
+              }
+              return { fantasyTeams: [...s.fantasyTeams, saved] };
+            });
+            return;
+          } catch (e) {
+            console.error('Failed to save fantasy team to Supabase:', e);
+            throw e;
+          }
+        }
+
+        // Local fallback
         set((s) => {
-          // Replace existing team for same group+match+user, or add new
-          const exists = s.fantasyTeams.findIndex(
+          const idx = s.fantasyTeams.findIndex(
             (t) => t.groupId === team.groupId && t.matchId === team.matchId && t.userId === team.userId
           );
-          if (exists >= 0) {
+          if (idx >= 0) {
             const updated = [...s.fantasyTeams];
-            updated[exists] = team;
+            updated[idx] = team;
             return { fantasyTeams: updated };
           }
           return { fantasyTeams: [...s.fantasyTeams, team] };

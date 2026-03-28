@@ -146,8 +146,11 @@ export function CreateTeamPage() {
     }
   }
 
-  function handleSave() {
-    if (!groupId || !captainId || !viceCaptainId) return;
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!groupId || !captainId || !viceCaptainId || saving) return;
+    setSaving(true);
     const picks: FantasyPick[] = selectedPlayers.map((p) => ({
       playerId: p.id,
       role: p.role,
@@ -164,10 +167,11 @@ export function CreateTeamPage() {
       createdAt: existingTeam?.createdAt ?? Date.now(),
     };
     try {
-      saveFantasyTeam(team);
+      await saveFantasyTeam(team);
       navigate(`/group/${groupId}/match/${matchId}`);
     } catch (e) {
       console.error('Failed to save team:', e);
+      setSaving(false);
     }
   }
 
@@ -528,9 +532,10 @@ export function CreateTeamPage() {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="flex-1 sunset-gradient font-semibold shadow-lg shadow-primary/20 rounded-full px-6 py-3.5 text-base min-h-[52px] active:scale-[0.98] transition-all"
+                  disabled={saving}
+                  className="flex-1 sunset-gradient font-semibold shadow-lg shadow-primary/20 rounded-full px-6 py-3.5 text-base min-h-[52px] active:scale-[0.98] transition-all disabled:opacity-60"
                 >
-                  Save Team
+                  {saving ? 'Saving...' : 'Save Team'}
                 </button>
               </div>
             </div>
