@@ -21,9 +21,9 @@ UPDATE gully11_players SET name = 'Suyash Sharma', credits = 7.5 WHERE team = 'R
 UPDATE gully11_players SET credits = 7.5 WHERE team = 'RCB' AND name = 'Yash Dayal';
 UPDATE gully11_players SET name = 'Rasikh Salam', credits = 6.5 WHERE team = 'RCB' AND name = 'Rasikh Dar';
 UPDATE gully11_players SET credits = 6.0 WHERE team = 'RCB' AND name = 'Abhinandan Singh';
-UPDATE gully11_players SET role = 'BOWL' WHERE team = 'RCB' AND name = 'Satvik Deswal';
-UPDATE gully11_players SET role = 'BOWL' WHERE team = 'RCB' AND name = 'Mangesh Yadav';
-UPDATE gully11_players SET role = 'BOWL' WHERE team = 'RCB' AND name = 'Vicky Ostwal';
+UPDATE gully11_players SET role = 'BOWL', credits = 6.0 WHERE team = 'RCB' AND name = 'Satvik Deswal';
+UPDATE gully11_players SET role = 'BOWL', credits = 6.5 WHERE team = 'RCB' AND name = 'Mangesh Yadav';
+UPDATE gully11_players SET role = 'BOWL', credits = 6.5 WHERE team = 'RCB' AND name = 'Vicky Ostwal';
 
 -- Fix SRH player roles and credits to match Dream11
 UPDATE gully11_players SET credits = 9.0 WHERE team = 'SRH' AND name = 'Ishan Kishan';
@@ -45,4 +45,6 @@ UPDATE gully11_players SET credits = 7.0 WHERE team = 'SRH' AND name = 'Jaydev U
 UPDATE gully11_players SET credits = 7.0 WHERE team = 'SRH' AND name = 'Eshan Malinga';
 UPDATE gully11_players SET role = 'BOWL', credits = 7.0 WHERE team = 'SRH' AND name = 'David Payne';
 UPDATE gully11_players SET credits = 7.0 WHERE team = 'SRH' AND name = 'Shivam Mavi';
-UPDATE gully11_players SET role = 'BOWL' WHERE team = 'SRH' AND name = 'Krains Fuletra';
+UPDATE gully11_players SET role = 'BOWL', credits = 5.5 WHERE team = 'SRH' AND name = 'Krains Fuletra';
+UPDATE gully11_players SET credits = 5.5 WHERE team = 'SRH' AND name = 'Onkar Tarmale';
+UPDATE gully11_players SET credits = 6.5 WHERE team = 'SRH' AND name = 'Praful Hinge';

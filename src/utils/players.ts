@@ -95,8 +95,8 @@ export const IPL_PLAYERS: Player[] = [
   p('RCB', 21, 'Rasikh Salam', 'BOWL', 6.5),
   p('RCB', 22, 'Abhinandan Singh', 'BOWL', 6.0),
   p('RCB', 23, 'Satvik Deswal', 'BOWL', 6.0),
-  p('RCB', 24, 'Mangesh Yadav', 'BOWL', 6.0),
-  p('RCB', 25, 'Vicky Ostwal', 'BOWL', 6.0),
+  p('RCB', 24, 'Mangesh Yadav', 'BOWL', 6.5),
+  p('RCB', 25, 'Vicky Ostwal', 'BOWL', 6.5),
 
   // ── KKR ──
   p('KKR', 1, 'Ajinkya Rahane', 'BAT', 8.0),
@@ -151,10 +151,10 @@ export const IPL_PLAYERS: Player[] = [
   p('SRH', 19, 'David Payne', 'BOWL', 7.0),
   p('SRH', 20, 'Shivam Mavi', 'BOWL', 7.0),
   p('SRH', 21, 'Sakib Hussain', 'BOWL', 6.0),
-  p('SRH', 22, 'Onkar Tarmale', 'BOWL', 6.0),
+  p('SRH', 22, 'Onkar Tarmale', 'BOWL', 5.5),
   p('SRH', 23, 'Amit Kumar', 'BOWL', 6.0),
-  p('SRH', 24, 'Praful Hinge', 'BOWL', 6.0),
-  p('SRH', 25, 'Krains Fuletra', 'BOWL', 6.0),
+  p('SRH', 24, 'Praful Hinge', 'BOWL', 6.5),
+  p('SRH', 25, 'Krains Fuletra', 'BOWL', 5.5),
 
   // ── DC ──
   p('DC', 1, 'Karun Nair', 'BAT', 8.0),
