@@ -699,7 +699,7 @@ function YourTeamPreview({
   homePicks.sort(sortByRole);
   awayPicks.sort(sortByRole);
 
-  const deadline = match.matchDate - 30 * 60 * 1000;
+  const deadline = match.matchDate; // Lock at match time (toss time)
   const canEdit = Date.now() <= deadline;
 
   const renderPlayer = (player: any) => {
@@ -772,7 +772,7 @@ function DeadlineSection({
   hasTeam: boolean;
   onCreateTeam: () => void;
 }) {
-  const deadline = matchDate - 30 * 60 * 1000;
+  const deadline = matchDate; // Lock at match time (toss time)
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
