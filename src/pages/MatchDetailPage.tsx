@@ -54,7 +54,6 @@ export function MatchDetailPage() {
   } = useLiveScoring({
     cricbuzzMatchId: match?.cricbuzzMatchId,
     matchStarted,
-    matchEnded,
     teams: allTeams,
     enabled: matchStarted && allTeams.length > 0 && !hasResults,
   });

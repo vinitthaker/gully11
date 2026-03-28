@@ -4,14 +4,11 @@ import { extractPlayerStatsFromCricbuzz, calculateTeamScore, type TeamScore, typ
 import type { FantasyTeam } from '../types';
 import { IPL_PLAYERS } from '../utils/players';
 
-// Poll every 3 minutes — Cricbuzz free tier: 200 requests/month
-// A T20 match ~3.5h = ~70 polls. Budget carefully.
-const POLL_INTERVAL = 180_000; // 3 minutes
+// No auto-polling — manual refresh only to conserve API calls (200/month)
 
 interface UseLiveScoringOptions {
   cricbuzzMatchId?: number;
   matchStarted: boolean;
-  matchEnded: boolean;
   teams: FantasyTeam[];
   enabled: boolean;
 }
@@ -30,7 +27,6 @@ interface UseLiveScoringResult {
 export function useLiveScoring({
   cricbuzzMatchId,
   matchStarted,
-  matchEnded,
   teams,
   enabled,
 }: UseLiveScoringOptions): UseLiveScoringResult {
@@ -41,7 +37,6 @@ export function useLiveScoring({
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const teamsRef = useRef(teams);
   teamsRef.current = teams;
 
@@ -133,35 +128,18 @@ export function useLiveScoring({
       const msg = e.message || 'Failed to fetch scores';
       setError(msg);
 
-      // Stop polling on API errors
-      if (msg.includes('429') || msg.includes('limit') || msg.includes('401')) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      }
+      // Log API errors for debugging
     } finally {
       setIsLoading(false);
     }
   }, [cricbuzzMatchId, enabled]);
 
-  // Auto-poll during live matches
+  // Fetch once on mount — no auto-polling to conserve API calls (200/month)
+  // Users can manually refresh via the Refresh button
   useEffect(() => {
     if (!enabled || !matchStarted || !cricbuzzMatchId) return;
-
     fetchAndCalculate();
-
-    if (!matchEnded) {
-      intervalRef.current = setInterval(fetchAndCalculate, POLL_INTERVAL);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [enabled, matchStarted, matchEnded, cricbuzzMatchId]);
+  }, [enabled, matchStarted, cricbuzzMatchId]);
 
   return {
     teamScores,
