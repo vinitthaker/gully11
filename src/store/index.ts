@@ -328,6 +328,7 @@ export const useStore = create<AppState>()(
         groups: state.groups,
         hasOnboarded: state.hasOnboarded,
         fantasyTeams: state.fantasyTeams,
+        iplSchedule: state.iplSchedule,
       }),
     }
   )
