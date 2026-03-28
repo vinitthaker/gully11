@@ -84,10 +84,10 @@ export function MatchDetailPage() {
     return allTeams;
   }, [allTeams, scoresByUser, teamScores]);
 
-  const { isDataLoaded, isScheduleLoaded } = useStore();
-  const isDataLoading = !isScheduleLoaded || (!isDataLoaded && iplSchedule.length === 0);
+  const { isScheduleLoaded } = useStore();
 
-  if (isDataLoading) {
+  // Show loading only if we have NO data at all (fresh load, not from cache)
+  if ((!group || !match) && !isScheduleLoaded) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
         <RefreshCw size={24} className="animate-spin text-primary" />

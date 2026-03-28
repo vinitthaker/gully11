@@ -18,10 +18,10 @@ export function GroupDashboardPage() {
   const group = groups.find((g) => g.id === id);
   usePageTitle(group ? `${group.name} | Gully11` : 'Gully11');
 
-  const { isDataLoaded, isScheduleLoaded } = useStore();
-  const isDataLoading = !isScheduleLoaded || !isDataLoaded;
+  const { isScheduleLoaded } = useStore();
 
-  if (isDataLoading) {
+  // Show loading only if we have NO data at all (fresh load, not from cache)
+  if (!group && !isScheduleLoaded) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
         <RefreshCw size={24} className="animate-spin text-primary" />
