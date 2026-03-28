@@ -46,6 +46,8 @@ export function MatchDetailPage() {
     liveScore,
     isLoading: scoringLoading,
     lastUpdated,
+    error: scoringError,
+    apiCallsUsed,
     refresh: refreshScoring,
   } = useLiveScoring({
     cricapiMatchId: match?.cricapiMatchId,
@@ -335,6 +337,7 @@ export function MatchDetailPage() {
                 {lastUpdated && (
                   <p className="text-[10px] text-on-surface-variant/50 mt-1">
                     Updated {Math.round((Date.now() - lastUpdated) / 1000)}s ago
+                    {isAdmin && apiCallsUsed > 0 && ` · ${apiCallsUsed}/100 API calls`}
                   </p>
                 )}
               </div>
@@ -456,6 +459,12 @@ export function MatchDetailPage() {
                     </button>
                   )}
                 </div>
+
+                {scoringError && (
+                  <div className="bg-amber-50 rounded-xl p-3 mb-3">
+                    <p className="text-xs text-amber-800">{scoringError}</p>
+                  </div>
+                )}
 
                 {scoringLoading && teamScores.length === 0 && (
                   <div className="text-center py-6">

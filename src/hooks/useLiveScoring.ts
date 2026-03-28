@@ -3,7 +3,10 @@ import * as cricapi from '../lib/cricapi';
 import { extractPlayerStats, calculateTeamScore, type TeamScore, type PlayerStats } from '../lib/scoring';
 import type { FantasyTeam } from '../types';
 
-const POLL_INTERVAL = 90_000; // 90 seconds
+// Poll every 3 minutes to stay within 100 API calls/day
+// A T20 match ~3.5 hours = 210 min / 3 = 70 calls (scorecard only)
+// Leaves ~30 calls for other API usage
+const POLL_INTERVAL = 180_000; // 3 minutes
 
 interface UseLiveScoringOptions {
   cricapiMatchId?: string;
@@ -20,6 +23,7 @@ interface UseLiveScoringResult {
   isLoading: boolean;
   lastUpdated: number | null;
   error: string | null;
+  apiCallsUsed: number;
   refresh: () => Promise<void>;
 }
 
@@ -36,47 +40,56 @@ export function useLiveScoring({
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [apiCallsUsed, setApiCallsUsed] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const teamsRef = useRef(teams);
+  teamsRef.current = teams;
 
   const fetchAndCalculate = useCallback(async () => {
     if (!cricapiMatchId || !enabled) return;
+
+    // Safety: stop polling if we've used too many API calls (leave buffer)
+    if (apiCallsUsed >= 80) {
+      console.warn('CricAPI call budget exhausted (80/100). Stopping auto-poll.');
+      setError('API call limit reached. Use manual refresh sparingly.');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
 
     try {
-      // Fetch scorecard and live scores in parallel
-      const [scorecard, scores] = await Promise.all([
-        cricapi.getMatchScorecard(cricapiMatchId).catch(() => null),
-        cricapi.getLiveScores().catch(() => []),
-      ]);
+      // Single API call — scorecard gives us player stats AND match status
+      // This is more efficient than calling both scorecard + liveScores
+      const scorecard = await cricapi.getMatchScorecard(cricapiMatchId);
+      setApiCallsUsed((prev) => prev + 1);
 
-      // Update live score
-      if (scores.length > 0) {
-        const liveMatch = scores.find((s: any) => s.id === cricapiMatchId);
-        if (liveMatch) {
-          const scoreArr = (liveMatch as any).score || [];
-          const innings = scoreArr.map((s: any) => `${s.r}/${s.w} (${s.o})`);
+      if (scorecard && scorecard.length > 0) {
+        // Extract live score from scorecard innings
+        const innings = scorecard.map((inn) => {
+          const battingRuns = inn.batting?.reduce((s, b) => s + (b.r || 0), 0) ?? 0;
+          const extras = 0; // scorecard doesn't separate extras easily
+          return { inning: inn.inning, runs: battingRuns + extras };
+        });
+
+        if (innings.length > 0) {
           setLiveScore({
-            t1s: innings[0],
-            t2s: innings[1],
-            status: liveMatch.status,
+            t1s: innings[0] ? `${innings[0].inning}` : undefined,
+            t2s: innings[1] ? `${innings[1].inning}` : undefined,
+            status: innings.length >= 2 ? 'In Progress' : `${innings[0]?.inning || 'Live'}`,
           });
         }
-      }
 
-      // Calculate points from scorecard
-      if (scorecard && scorecard.length > 0) {
+        // Calculate points from scorecard
         const stats = extractPlayerStats(scorecard);
         setPlayerStats(stats);
 
-        // Calculate scores for all teams
-        const scores: TeamScore[] = teams.map((team) => {
+        const currentTeams = teamsRef.current;
+        const scores: TeamScore[] = currentTeams.map((team) => {
           const playerIds = team.players.map((p) => p.playerId);
           return calculateTeamScore(stats, playerIds, team.captainId, team.viceCaptainId, team.userId);
         });
 
-        // Sort by total points
         scores.sort((a, b) => b.totalPoints - a.totalPoints);
         setTeamScores(scores);
         setLastUpdated(Date.now());
@@ -87,7 +100,7 @@ export function useLiveScoring({
     } finally {
       setIsLoading(false);
     }
-  }, [cricapiMatchId, teams, enabled]);
+  }, [cricapiMatchId, enabled, apiCallsUsed]);
 
   // Auto-poll during live matches
   useEffect(() => {
@@ -107,7 +120,7 @@ export function useLiveScoring({
         intervalRef.current = null;
       }
     };
-  }, [enabled, matchStarted, matchEnded, cricapiMatchId, fetchAndCalculate]);
+  }, [enabled, matchStarted, matchEnded, cricapiMatchId]); // intentionally exclude fetchAndCalculate to avoid re-creating interval
 
   return {
     teamScores,
@@ -116,6 +129,7 @@ export function useLiveScoring({
     isLoading,
     lastUpdated,
     error,
+    apiCallsUsed,
     refresh: fetchAndCalculate,
   };
 }
