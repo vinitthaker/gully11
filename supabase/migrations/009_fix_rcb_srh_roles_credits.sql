@@ -1,0 +1,48 @@
+-- Fix RCB player roles and credits to match Dream11
+UPDATE gully11_players SET role = 'WK', credits = 9.0 WHERE team = 'RCB' AND name = 'Phil Salt';
+UPDATE gully11_players SET role = 'WK', credits = 8.0 WHERE team = 'RCB' AND name = 'Jitesh Sharma';
+UPDATE gully11_players SET role = 'WK', credits = 6.5 WHERE team = 'RCB' AND name = 'Jordan Cox';
+UPDATE gully11_players SET role = 'BAT', credits = 9.0 WHERE team = 'RCB' AND name = 'Virat Kohli';
+UPDATE gully11_players SET credits = 8.5 WHERE team = 'RCB' AND name = 'Rajat Patidar';
+UPDATE gully11_players SET role = 'BAT', credits = 8.0 WHERE team = 'RCB' AND name = 'Tim David';
+UPDATE gully11_players SET role = 'BAT', credits = 8.0 WHERE team = 'RCB' AND name = 'Jacob Bethell';
+UPDATE gully11_players SET credits = 7.5 WHERE team = 'RCB' AND name = 'Devdutt Padikkal';
+UPDATE gully11_players SET role = 'BAT', credits = 7.5 WHERE team = 'RCB' AND name = 'Venkatesh Iyer';
+UPDATE gully11_players SET credits = 8.5 WHERE team = 'RCB' AND name = 'Krunal Pandya';
+UPDATE gully11_players SET credits = 8.0 WHERE team = 'RCB' AND name = 'Romario Shepherd';
+UPDATE gully11_players SET role = 'AR', credits = 6.5 WHERE team = 'RCB' AND name = 'Swapnil Singh';
+UPDATE gully11_players SET role = 'AR', credits = 6.5 WHERE team = 'RCB' AND name = 'Vihaan Malhotra';
+UPDATE gully11_players SET role = 'AR', credits = 6.0 WHERE team = 'RCB' AND name = 'Kanishk Chouhan';
+UPDATE gully11_players SET credits = 9.0 WHERE team = 'RCB' AND name = 'Josh Hazlewood';
+UPDATE gully11_players SET credits = 8.5 WHERE team = 'RCB' AND name = 'Bhuvneshwar Kumar';
+UPDATE gully11_players SET credits = 8.0 WHERE team = 'RCB' AND name = 'Nuwan Thushara';
+UPDATE gully11_players SET credits = 8.0 WHERE team = 'RCB' AND name = 'Jacob Duffy';
+UPDATE gully11_players SET name = 'Suyash Sharma', credits = 7.5 WHERE team = 'RCB' AND name = 'Suyash Sharma';
+UPDATE gully11_players SET credits = 7.5 WHERE team = 'RCB' AND name = 'Yash Dayal';
+UPDATE gully11_players SET name = 'Rasikh Salam', credits = 6.5 WHERE team = 'RCB' AND name = 'Rasikh Dar';
+UPDATE gully11_players SET credits = 6.0 WHERE team = 'RCB' AND name = 'Abhinandan Singh';
+UPDATE gully11_players SET role = 'BOWL' WHERE team = 'RCB' AND name = 'Satvik Deswal';
+UPDATE gully11_players SET role = 'BOWL' WHERE team = 'RCB' AND name = 'Mangesh Yadav';
+UPDATE gully11_players SET role = 'BOWL' WHERE team = 'RCB' AND name = 'Vicky Ostwal';
+
+-- Fix SRH player roles and credits to match Dream11
+UPDATE gully11_players SET credits = 9.0 WHERE team = 'SRH' AND name = 'Ishan Kishan';
+UPDATE gully11_players SET credits = 8.5 WHERE team = 'SRH' AND name = 'Heinrich Klaasen';
+UPDATE gully11_players SET role = 'BAT', credits = 9.0 WHERE team = 'SRH' AND name = 'Abhishek Sharma';
+UPDATE gully11_players SET role = 'BAT', credits = 9.0 WHERE team = 'SRH' AND name = 'Travis Head';
+UPDATE gully11_players SET role = 'BAT', credits = 7.0 WHERE team = 'SRH' AND name = 'Aniket Verma';
+UPDATE gully11_players SET role = 'BAT', credits = 6.5 WHERE team = 'SRH' AND name = 'Smaran Ravichandran';
+UPDATE gully11_players SET role = 'BAT', credits = 6.0 WHERE team = 'SRH' AND name = 'Shivang Kumar';
+UPDATE gully11_players SET credits = 8.0 WHERE team = 'SRH' AND name = 'Nitish Kumar Reddy';
+UPDATE gully11_players SET credits = 8.0 WHERE team = 'SRH' AND name = 'Liam Livingstone';
+UPDATE gully11_players SET credits = 7.5 WHERE team = 'SRH' AND name = 'Kamindu Mendis';
+UPDATE gully11_players SET role = 'AR', credits = 7.0 WHERE team = 'SRH' AND name = 'Harsh Dubey';
+UPDATE gully11_players SET role = 'BOWL', credits = 8.5 WHERE team = 'SRH' AND name = 'Pat Cummins';
+UPDATE gully11_players SET role = 'BOWL', credits = 8.0 WHERE team = 'SRH' AND name = 'Harshal Patel';
+UPDATE gully11_players SET role = 'BOWL', credits = 7.5 WHERE team = 'SRH' AND name = 'Brydon Carse';
+UPDATE gully11_players SET role = 'BOWL', credits = 7.5 WHERE team = 'SRH' AND name = 'Zeeshan Ansari';
+UPDATE gully11_players SET credits = 7.0 WHERE team = 'SRH' AND name = 'Jaydev Unadkat';
+UPDATE gully11_players SET credits = 7.0 WHERE team = 'SRH' AND name = 'Eshan Malinga';
+UPDATE gully11_players SET role = 'BOWL', credits = 7.0 WHERE team = 'SRH' AND name = 'David Payne';
+UPDATE gully11_players SET credits = 7.0 WHERE team = 'SRH' AND name = 'Shivam Mavi';
+UPDATE gully11_players SET role = 'BOWL' WHERE team = 'SRH' AND name = 'Krains Fuletra';
