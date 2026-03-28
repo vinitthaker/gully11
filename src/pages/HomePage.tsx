@@ -160,6 +160,17 @@ export function HomePage() {
               <h3 className="font-headline font-bold text-lg text-on-surface mb-5">New League</h3>
 
               <div className="space-y-4">
+                {/* Rules summary — shown first */}
+                <div className="bg-primary-container/30 rounded-2xl p-4">
+                  <p className="text-label text-on-primary-container mb-2">HOW IT WORKS</p>
+                  <ul className="space-y-1.5 text-xs text-on-surface-variant leading-relaxed">
+                    <li className="flex gap-2"><span className="shrink-0">1.</span>Every member pays the entry fee per match — whether you play or not</li>
+                    <li className="flex gap-2"><span className="shrink-0">2.</span>Play on Dream11 and the admin enters rankings after each match</li>
+                    <li className="flex gap-2"><span className="shrink-0">3.</span>Top rankers win from the pool, bottom rankers lose their entry</li>
+                    <li className="flex gap-2"><span className="shrink-0">4.</span>Settle balances at any time via the Settlements page</li>
+                  </ul>
+                </div>
+
                 <Input
                   ref={groupNameRef}
                   label="LEAGUE NAME"
@@ -176,17 +187,6 @@ export function HomePage() {
                   onChange={(e) => setEntryAmount(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleCreateGroup(); }}
                 />
-
-                {/* Rules summary */}
-                <div className="bg-primary-container/30 rounded-2xl p-4">
-                  <p className="text-label text-on-primary-container mb-2">HOW IT WORKS</p>
-                  <ul className="space-y-1.5 text-xs text-on-surface-variant leading-relaxed">
-                    <li className="flex gap-2"><span className="shrink-0">1.</span>Every member pays ₹{entryAmount || '100'} per match — whether you play or not</li>
-                    <li className="flex gap-2"><span className="shrink-0">2.</span>Play on Dream11 and the admin enters rankings after each match</li>
-                    <li className="flex gap-2"><span className="shrink-0">3.</span>Top rankers win from the pool, bottom rankers lose their entry</li>
-                    <li className="flex gap-2"><span className="shrink-0">4.</span>Settle balances at any time via the Settlements page</li>
-                  </ul>
-                </div>
 
                 <div className="flex gap-3 pt-2">
                   <Button
