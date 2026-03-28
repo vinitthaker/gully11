@@ -143,7 +143,7 @@ export function useLiveScoring({
   matchStarted,
   teams,
   enabled,
-  isAdmin: _isAdmin,
+  isAdmin,
   authUserId,
 }: UseLiveScoringOptions): UseLiveScoringResult {
   const [teamScores, setTeamScores] = useState<TeamScore[]>([]);
@@ -282,6 +282,18 @@ export function useLiveScoring({
     const interval = setInterval(loadFromCache, 30_000);
     return () => clearInterval(interval);
   }, [enabled, matchStarted, loadFromCache]);
+
+  // Admin auto-refresh: call Cricbuzz API every 3 minutes and save to cache
+  // Only runs if admin has the match page open — saves to Supabase so all users see it
+  useEffect(() => {
+    if (!enabled || !matchStarted || !isAdmin || !cricbuzzMatchId || !authUserId) return;
+
+    // First refresh on mount (admin only)
+    refreshFromApi();
+
+    const interval = setInterval(refreshFromApi, 3 * 60 * 1000); // Every 3 minutes
+    return () => clearInterval(interval);
+  }, [enabled, matchStarted, isAdmin, cricbuzzMatchId, authUserId]);
 
   return {
     teamScores,
