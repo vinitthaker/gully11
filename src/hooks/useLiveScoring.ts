@@ -19,6 +19,7 @@ interface UseLiveScoringOptions {
 interface UseLiveScoringResult {
   teamScores: TeamScore[];
   playerStats: Map<string, PlayerStats>;
+  playerIdMap: Map<string, string>; // our player ID → cricbuzz player ID
   liveScore: { status?: string } | null;
   isLoading: boolean;
   lastUpdated: number | null;
@@ -35,6 +36,7 @@ export function useLiveScoring({
 }: UseLiveScoringOptions): UseLiveScoringResult {
   const [teamScores, setTeamScores] = useState<TeamScore[]>([]);
   const [playerStats, setPlayerStats] = useState<Map<string, PlayerStats>>(new Map());
+  const [playerIdMap, setPlayerIdMap] = useState<Map<string, string>>(new Map());
   const [liveScore, setLiveScore] = useState<{ status?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
@@ -101,11 +103,24 @@ export function useLiveScoring({
           return ourPlayerId; // No match — 0 points
         };
 
+        // Build and save the ID mapping
+        const idMap = new Map<string, string>();
         const currentTeams = teamsRef.current;
+        for (const team of currentTeams) {
+          for (const p of team.players) {
+            if (!idMap.has(p.playerId)) {
+              idMap.set(p.playerId, mapPlayerToCricbuzz(p.playerId));
+            }
+          }
+          if (!idMap.has(team.captainId)) idMap.set(team.captainId, mapPlayerToCricbuzz(team.captainId));
+          if (!idMap.has(team.viceCaptainId)) idMap.set(team.viceCaptainId, mapPlayerToCricbuzz(team.viceCaptainId));
+        }
+        setPlayerIdMap(idMap);
+
         const scores: TeamScore[] = currentTeams.map((team) => {
-          const mappedPlayerIds = team.players.map((p) => mapPlayerToCricbuzz(p.playerId));
-          const mappedCaptainId = mapPlayerToCricbuzz(team.captainId);
-          const mappedVCId = mapPlayerToCricbuzz(team.viceCaptainId);
+          const mappedPlayerIds = team.players.map((p) => idMap.get(p.playerId) || p.playerId);
+          const mappedCaptainId = idMap.get(team.captainId) || team.captainId;
+          const mappedVCId = idMap.get(team.viceCaptainId) || team.viceCaptainId;
           return calculateTeamScore(stats, mappedPlayerIds, mappedCaptainId, mappedVCId, team.userId);
         });
 
@@ -151,6 +166,7 @@ export function useLiveScoring({
   return {
     teamScores,
     playerStats,
+    playerIdMap,
     liveScore,
     isLoading,
     lastUpdated,

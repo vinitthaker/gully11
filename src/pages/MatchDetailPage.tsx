@@ -44,6 +44,7 @@ export function MatchDetailPage() {
   // ─── Auto scoring hook ────────────────────────────────────────
   const {
     teamScores,
+    playerIdMap,
     liveScore,
     isLoading: scoringLoading,
     lastUpdated,
@@ -167,7 +168,9 @@ export function MatchDetailPage() {
 
     const picks = team.players.map((pick) => {
       const player = IPL_PLAYERS.find((p) => p.id === pick.playerId);
-      const playerScore = score?.playerScores.find((ps) => ps.playerId === pick.playerId);
+      // Look up by mapped Cricbuzz ID since that's what calculateTeamScore used
+      const mappedId = playerIdMap.get(pick.playerId) || pick.playerId;
+      const playerScore = score?.playerScores.find((ps) => ps.playerId === mappedId);
       return player ? { ...player, pickRole: pick.role, pts: playerScore } : null;
     }).filter(Boolean) as (typeof IPL_PLAYERS[0] & { pickRole: string; pts?: TeamScore['playerScores'][0] })[];
 
