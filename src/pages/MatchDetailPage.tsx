@@ -47,7 +47,6 @@ export function MatchDetailPage() {
     isLoading: scoringLoading,
     lastUpdated,
     error: scoringError,
-    apiCallsUsed,
     refresh: refreshScoring,
   } = useLiveScoring({
     cricapiMatchId: match?.cricapiMatchId,
@@ -337,7 +336,6 @@ export function MatchDetailPage() {
                 {lastUpdated && (
                   <p className="text-[10px] text-on-surface-variant/50 mt-1">
                     Updated {Math.round((Date.now() - lastUpdated) / 1000)}s ago
-                    {isAdmin && apiCallsUsed > 0 && ` · ${apiCallsUsed}/100 API calls`}
                   </p>
                 )}
               </div>

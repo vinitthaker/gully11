@@ -87,37 +87,38 @@ export function useLiveScoring({
 
         // Build name-based mapping: our player ID → CricAPI player ID
         // CricAPI uses UUIDs, our app uses "team-idx" format
-        // Match by normalized last name + first initial
-        const cricApiPlayersByName = new Map<string, string>();
-        for (const [cricId, cricPlayer] of stats) {
-          // Store multiple name variants for matching
-          const name = cricPlayer.name.toLowerCase().trim();
-          cricApiPlayersByName.set(name, cricId);
-          // Also store by last name only for fuzzy matching
-          const parts = name.split(' ');
-          if (parts.length > 1) {
-            cricApiPlayersByName.set(parts[parts.length - 1], cricId);
-            // First initial + last name: "v kohli"
-            cricApiPlayersByName.set(`${parts[0][0]} ${parts[parts.length - 1]}`, cricId);
-          }
-        }
+        // We build a lookup from various name forms to CricAPI IDs
+        const cricApiPlayers = Array.from(stats.entries());
+
+        const normalize = (s: string) => s.toLowerCase().trim().replace(/[^a-z ]/g, '');
 
         const mapPlayerToCricApi = (ourPlayerId: string): string => {
           const player = IPL_PLAYERS.find((p) => p.id === ourPlayerId);
           if (!player) return ourPlayerId;
 
-          const name = player.name.toLowerCase().trim();
-          // Exact match
-          if (cricApiPlayersByName.has(name)) return cricApiPlayersByName.get(name)!;
+          const ourName = normalize(player.name);
+          const ourParts = ourName.split(' ').filter(Boolean);
+          const ourLast = ourParts[ourParts.length - 1];
+          const ourFirst = ourParts[0];
 
-          // Last name match
-          const parts = name.split(' ');
-          if (parts.length > 1) {
-            const lastName = parts[parts.length - 1];
-            if (cricApiPlayersByName.has(lastName)) return cricApiPlayersByName.get(lastName)!;
-            // First initial + last name
-            const shortName = `${parts[0][0]} ${lastName}`;
-            if (cricApiPlayersByName.has(shortName)) return cricApiPlayersByName.get(shortName)!;
+          for (const [cricId, cricPlayer] of cricApiPlayers) {
+            const cricName = normalize(cricPlayer.name);
+            const cricParts = cricName.split(' ').filter(Boolean);
+            const cricLast = cricParts[cricParts.length - 1];
+            const cricFirst = cricParts[0];
+
+            // 1. Exact full name match
+            if (ourName === cricName) return cricId;
+
+            // 2. Last name match + first letter match (e.g. "V Kohli" = "Virat Kohli")
+            if (ourLast === cricLast && ourFirst[0] === cricFirst[0]) return cricId;
+
+            // 3. One name is short form of another (e.g. "Phil Salt" vs "Philip Salt")
+            if (ourLast === cricLast && (cricFirst.startsWith(ourFirst) || ourFirst.startsWith(cricFirst))) return cricId;
+
+            // 4. Last name only match (risky but useful for unique surnames)
+            // Only use if last name is 5+ chars to avoid false matches
+            if (ourLast === cricLast && ourLast.length >= 5) return cricId;
           }
 
           // No match found — return original ID (will get 0 points)
