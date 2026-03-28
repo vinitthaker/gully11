@@ -91,9 +91,9 @@ CREATE POLICY "Users can read own groups"
   TO authenticated
   USING (id IN (SELECT get_my_gully11_group_ids(auth.uid())));
 
-CREATE POLICY "Users can read groups by invite code"
+CREATE POLICY "Anyone can read groups by invite code"
   ON gully11_groups FOR SELECT
-  TO authenticated
+  TO authenticated, anon
   USING (invite_code IS NOT NULL);
 
 CREATE POLICY "Authenticated users can create groups"
@@ -112,9 +112,9 @@ CREATE POLICY "Group creator can delete"
   USING (created_by = auth.uid());
 
 -- Group members
-CREATE POLICY "Members can read group members"
+CREATE POLICY "Members and invitees can read group members"
   ON gully11_group_members FOR SELECT
-  TO authenticated
+  TO authenticated, anon
   USING (group_id IN (SELECT get_my_gully11_group_ids(auth.uid()))
     OR group_id IN (SELECT id FROM gully11_groups WHERE invite_code IS NOT NULL));
 
