@@ -19,6 +19,7 @@ export async function fetchIPLSchedule(): Promise<IPLMatch[]> {
     teamAway: m.team_away,
     matchDate: new Date(m.match_date).getTime(),
     venue: m.venue,
+    cricapiMatchId: m.cricapi_match_id || undefined,
   }));
 }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as cricapi from '../lib/cricapi';
 import { extractPlayerStats, calculateTeamScore, type TeamScore, type PlayerStats } from '../lib/scoring';
 import type { FantasyTeam } from '../types';
+import { IPL_PLAYERS } from '../utils/players';
 
 // Poll every 3 minutes to stay within 100 API calls/day
 // A T20 match ~3.5 hours = 210 min / 3 = 70 calls (scorecard only)
@@ -84,10 +85,51 @@ export function useLiveScoring({
         const stats = extractPlayerStats(scorecard);
         setPlayerStats(stats);
 
+        // Build name-based mapping: our player ID → CricAPI player ID
+        // CricAPI uses UUIDs, our app uses "team-idx" format
+        // Match by normalized last name + first initial
+        const cricApiPlayersByName = new Map<string, string>();
+        for (const [cricId, cricPlayer] of stats) {
+          // Store multiple name variants for matching
+          const name = cricPlayer.name.toLowerCase().trim();
+          cricApiPlayersByName.set(name, cricId);
+          // Also store by last name only for fuzzy matching
+          const parts = name.split(' ');
+          if (parts.length > 1) {
+            cricApiPlayersByName.set(parts[parts.length - 1], cricId);
+            // First initial + last name: "v kohli"
+            cricApiPlayersByName.set(`${parts[0][0]} ${parts[parts.length - 1]}`, cricId);
+          }
+        }
+
+        const mapPlayerToCricApi = (ourPlayerId: string): string => {
+          const player = IPL_PLAYERS.find((p) => p.id === ourPlayerId);
+          if (!player) return ourPlayerId;
+
+          const name = player.name.toLowerCase().trim();
+          // Exact match
+          if (cricApiPlayersByName.has(name)) return cricApiPlayersByName.get(name)!;
+
+          // Last name match
+          const parts = name.split(' ');
+          if (parts.length > 1) {
+            const lastName = parts[parts.length - 1];
+            if (cricApiPlayersByName.has(lastName)) return cricApiPlayersByName.get(lastName)!;
+            // First initial + last name
+            const shortName = `${parts[0][0]} ${lastName}`;
+            if (cricApiPlayersByName.has(shortName)) return cricApiPlayersByName.get(shortName)!;
+          }
+
+          // No match found — return original ID (will get 0 points)
+          return ourPlayerId;
+        };
+
         const currentTeams = teamsRef.current;
         const scores: TeamScore[] = currentTeams.map((team) => {
-          const playerIds = team.players.map((p) => p.playerId);
-          return calculateTeamScore(stats, playerIds, team.captainId, team.viceCaptainId, team.userId);
+          const mappedPlayerIds = team.players.map((p) => mapPlayerToCricApi(p.playerId));
+          const mappedCaptainId = mapPlayerToCricApi(team.captainId);
+          const mappedVCId = mapPlayerToCricApi(team.viceCaptainId);
+          return calculateTeamScore(stats, mappedPlayerIds, mappedCaptainId, mappedVCId, team.userId);
         });
 
         scores.sort((a, b) => b.totalPoints - a.totalPoints);
