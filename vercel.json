@@ -1,15 +1,8 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": {
-    "api/refresh-scores.ts": {
-      "memory": 256,
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
-    { "source": "/api/refresh-scores", "destination": "/api/refresh-scores" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
