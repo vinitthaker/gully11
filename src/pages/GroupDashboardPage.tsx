@@ -1,0 +1,300 @@
+import { useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Calendar, Trophy, ArrowRightLeft, Users, Settings, ChevronRight, Crown } from 'lucide-react';
+import { useStore } from '../store';
+import { Header } from '../components/Header';
+import { Card } from '../components/Card';
+import { usePageTitle } from '../hooks/usePageTitle';
+import { getTeamByName } from '../utils/ipl';
+import { getAvatarColor, getInitial } from '../utils/avatarColor';
+import { calculateBalances } from '../utils/balance';
+import { formatAmount } from '../utils/currency';
+
+export function GroupDashboardPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { groups, iplSchedule, matchResults, transactions, currentUser } = useStore();
+
+  const group = groups.find((g) => g.id === id);
+  usePageTitle(group ? `${group.name} | Gully11` : 'Gully11');
+
+  if (!group) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <p className="text-on-surface-variant">League not found</p>
+      </div>
+    );
+  }
+
+  const groupResults = matchResults.filter((r) => r.groupId === id);
+  const groupTransactions = transactions.filter((t) => t.groupId === id);
+  const completedMatchIds = new Set(groupResults.map((r) => r.matchId));
+
+  // Next 2 upcoming matches
+  const upcomingMatches = useMemo(() => {
+    return iplSchedule
+      .filter((m) => !completedMatchIds.has(m.id))
+      .sort((a, b) => a.matchDate - b.matchDate)
+      .slice(0, 2);
+  }, [iplSchedule, completedMatchIds]);
+
+  // Recent completed results (last 3)
+  const recentCompleted = useMemo(() => {
+    const completedIds = Array.from(completedMatchIds);
+    return iplSchedule
+      .filter((m) => completedIds.includes(m.id))
+      .sort((a, b) => b.matchDate - a.matchDate)
+      .slice(0, 3);
+  }, [iplSchedule, completedMatchIds]);
+
+  // Leaderboard: top 3
+  const balances = calculateBalances(groupTransactions);
+  const leaderboard = useMemo(() => {
+    return group.members
+      .map((m) => ({
+        ...m,
+        balance: balances[m.id] || 0,
+      }))
+      .sort((a, b) => b.balance - a.balance)
+      .slice(0, 3);
+  }, [group.members, balances]);
+
+  const isAdmin = group.members.find((m) => m.id === currentUser.id)?.isAdmin;
+
+  const navItems = [
+    { label: 'All Matches', icon: Calendar, path: `/group/${id}/matches` },
+    { label: 'Leaderboard', icon: Trophy, path: `/group/${id}/leaderboard` },
+    { label: 'Settlements', icon: ArrowRightLeft, path: `/group/${id}/settlements` },
+    { label: 'Members', icon: Users, path: `/group/${id}/members` },
+    { label: 'Settings', icon: Settings, path: `/group/${id}/settings` },
+  ];
+
+  return (
+    <div className="min-h-screen bg-surface">
+      <Header
+        variant="page"
+        title={group.name}
+        showBack
+        rightAction={
+          isAdmin ? (
+            <button
+              onClick={() => navigate(`/group/${id}/settings`)}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-dim transition-colors"
+            >
+              <Settings size={20} className="text-on-surface-variant" />
+            </button>
+          ) : undefined
+        }
+      />
+
+      <main className="px-6 pb-8 max-w-2xl mx-auto">
+        {/* Upcoming Matches */}
+        {upcomingMatches.length > 0 && (
+          <section className="mt-2 mb-6">
+            <p className="text-label text-on-surface-variant mb-3">UPCOMING MATCHES</p>
+            <div className="space-y-3">
+              {upcomingMatches.map((match) => {
+                const home = getTeamByName(match.teamHome);
+                const away = getTeamByName(match.teamAway);
+                const dateStr = new Date(match.matchDate).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'short',
+                });
+                const timeStr = new Date(match.matchDate).toLocaleTimeString('en-IN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
+
+                return (
+                  <Card
+                    key={match.id}
+                    onClick={() => navigate(`/group/${id}/match/${match.id}`)}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 text-center">
+                        <div
+                          className="w-12 h-12 rounded-xl mx-auto mb-2 flex items-center justify-center text-xs font-bold"
+                          style={{ backgroundColor: home?.color || '#666', color: home?.textColor || '#fff' }}
+                        >
+                          {home?.code || match.teamHome.slice(0, 3).toUpperCase()}
+                        </div>
+                        <p className="text-sm font-semibold text-on-surface truncate">
+                          {home?.shortName || match.teamHome}
+                        </p>
+                      </div>
+
+                      <div className="text-center shrink-0">
+                        <p className="font-headline font-bold text-on-surface-variant text-lg">VS</p>
+                        <p className="text-xs text-on-surface-variant mt-1">{dateStr}</p>
+                        <p className="text-xs text-on-surface-variant">{timeStr}</p>
+                      </div>
+
+                      <div className="flex-1 text-center">
+                        <div
+                          className="w-12 h-12 rounded-xl mx-auto mb-2 flex items-center justify-center text-xs font-bold"
+                          style={{ backgroundColor: away?.color || '#666', color: away?.textColor || '#fff' }}
+                        >
+                          {away?.code || match.teamAway.slice(0, 3).toUpperCase()}
+                        </div>
+                        <p className="text-sm font-semibold text-on-surface truncate">
+                          {away?.shortName || match.teamAway}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-on-surface-variant text-center mt-3 truncate">
+                      {match.venue}
+                    </p>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Quick Leaderboard */}
+        {leaderboard.length > 0 && groupTransactions.length > 0 && (
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-label text-on-surface-variant">LEADERBOARD</p>
+              <button
+                onClick={() => navigate(`/group/${id}/leaderboard`)}
+                className="text-xs font-semibold text-primary"
+              >
+                View all
+              </button>
+            </div>
+            <Card>
+              <div className="space-y-3">
+                {leaderboard.map((member, i) => {
+                  const colors = getAvatarColor(member.name);
+                  const isMe = member.id === currentUser.id;
+                  return (
+                    <div
+                      key={member.id}
+                      className={`flex items-center gap-3 ${isMe ? 'bg-primary-container/20 -mx-2 px-2 py-1.5 rounded-xl' : ''}`}
+                    >
+                      {/* Rank */}
+                      <div className="w-7 text-center shrink-0">
+                        {i === 0 ? (
+                          <Crown className="text-amber-500 mx-auto" size={18} />
+                        ) : (
+                          <span className="font-headline font-bold text-on-surface-variant text-sm">
+                            {i + 1}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Avatar */}
+                      <div
+                        className={`w-9 h-9 rounded-full ${colors.bg} ${colors.text} flex items-center justify-center text-sm font-bold shrink-0`}
+                      >
+                        {getInitial(member.name)}
+                      </div>
+
+                      {/* Name */}
+                      <p className="flex-1 font-medium text-on-surface text-sm truncate">
+                        {isMe ? 'You' : member.name}
+                      </p>
+
+                      {/* Balance */}
+                      <p
+                        className={`font-headline font-bold text-sm shrink-0 ${
+                          member.balance > 0
+                            ? 'text-owed'
+                            : member.balance < 0
+                              ? 'text-owe'
+                              : 'text-on-surface-variant'
+                        }`}
+                      >
+                        {member.balance >= 0 ? '+' : '-'}
+                        {formatAmount(Math.abs(member.balance))}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </section>
+        )}
+
+        {/* Recent Results */}
+        {recentCompleted.length > 0 && (
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-label text-on-surface-variant">RECENT RESULTS</p>
+              <button
+                onClick={() => navigate(`/group/${id}/matches`)}
+                className="text-xs font-semibold text-primary"
+              >
+                View all
+              </button>
+            </div>
+            <div className="space-y-2">
+              {recentCompleted.map((match) => {
+                const home = getTeamByName(match.teamHome);
+                const away = getTeamByName(match.teamAway);
+                return (
+                  <Card
+                    key={match.id}
+                    onClick={() => navigate(`/group/${id}/match/${match.id}`)}
+                    className="!p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0"
+                          style={{ backgroundColor: home?.color || '#666', color: home?.textColor || '#fff' }}
+                        >
+                          {home?.code || match.teamHome.slice(0, 3).toUpperCase()}
+                        </div>
+                        <span className="text-xs text-on-surface-variant">vs</span>
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0"
+                          style={{ backgroundColor: away?.color || '#666', color: away?.textColor || '#fff' }}
+                        >
+                          {away?.code || match.teamAway.slice(0, 3).toUpperCase()}
+                        </div>
+                        <span className="text-sm text-on-surface font-medium truncate ml-1">
+                          Match #{match.id}
+                        </span>
+                      </div>
+                      <span className="text-xs font-semibold text-owed bg-green-50 px-2 py-0.5 rounded-full shrink-0">
+                        Results
+                      </span>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Navigation */}
+        <section className="mt-2">
+          <div className="bg-white rounded-2xl card-shadow overflow-hidden">
+            {navItems.map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.label}
+                  onClick={() => navigate(item.path)}
+                  className={`w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-surface-dim/30 active:bg-surface-dim/50 transition-colors ${
+                    i < navItems.length - 1 ? 'border-b border-surface-dim' : ''
+                  }`}
+                >
+                  <div className="w-9 h-9 rounded-xl bg-primary-container/60 flex items-center justify-center shrink-0">
+                    <Icon className="text-primary" size={18} strokeWidth={1.8} />
+                  </div>
+                  <span className="flex-1 font-medium text-on-surface text-sm">{item.label}</span>
+                  <ChevronRight size={18} className="text-on-surface-variant/40" />
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

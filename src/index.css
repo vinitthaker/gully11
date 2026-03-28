@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@theme {
+  /* Primary — Warm Orange */
+  --color-primary: #E67E22;
+  --color-primary-dark: #D35400;
+  --color-primary-container: #FBEEE6;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #6E3B0F;
+
+  /* Semantic */
+  --color-owed: #2e7d32;
+  --color-owe: #E74C3C;
+  --color-owe-container: #FDEDEC;
+
+  /* Surfaces */
+  --color-surface: #FAFAFA;
+  --color-surface-container: #FFFFFF;
+  --color-surface-dim: #F0F0F0;
+
+  /* Text */
+  --color-on-surface: #1A1A1A;
+  --color-on-surface-variant: #666666;
+
+  /* Fonts */
+  --font-headline: 'Outfit', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-surface);
+  font-family: var(--font-body);
+  color: var(--color-on-surface);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, .font-headline {
+  font-family: var(--font-headline);
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+@utility sunset-gradient {
+  background: linear-gradient(135deg, #E67E22 0%, #D35400 100%);
+  color: white;
+}
+
+@utility text-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+@utility card-shadow {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+@utility glass {
+  backdrop-filter: blur(12px);
+  background: rgba(250, 250, 250, 0.8);
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+@keyframes chip-in {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-chip-in {
+  animation: chip-in 0.15s ease-out;
+}
