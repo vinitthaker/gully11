@@ -82,7 +82,10 @@ async function apiFetch<T>(endpoint: string, params: Record<string, string> = {}
   if (!res.ok) throw new Error(`CricAPI error: ${res.status}`);
 
   const json = await res.json();
-  if (json.status !== 'success') throw new Error(json.status || 'CricAPI request failed');
+  if (json.status !== 'success') {
+    console.error(`CricAPI ${endpoint} failed:`, json);
+    throw new Error(json.reason || json.status || 'CricAPI request failed');
+  }
 
   return json.data;
 }

@@ -61,7 +61,6 @@ export function useLiveScoring({
 
     try {
       // Single API call — scorecard gives us player stats AND match status
-      // This is more efficient than calling both scorecard + liveScores
       const scorecard = await cricapi.getMatchScorecard(cricapiMatchId);
       setApiCallsUsed((prev) => prev + 1);
 
@@ -139,7 +138,16 @@ export function useLiveScoring({
       }
     } catch (e: any) {
       console.error('Live scoring error:', e);
-      setError(e.message || 'Failed to fetch scores');
+      const msg = e.message || 'Failed to fetch scores';
+      setError(msg);
+
+      // Stop polling if rate limited or API error
+      if (msg.includes('exceeded') || msg.includes('limit') || msg.includes('failure')) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      }
     } finally {
       setIsLoading(false);
     }
