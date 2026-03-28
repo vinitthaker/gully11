@@ -12,11 +12,30 @@ import { formatAmount } from '../utils/currency';
 export function LeaderboardPage() {
   usePageTitle('Leaderboard | Gully11');
   const { id } = useParams<{ id: string }>();
-  const { groups, transactions, currentUser } = useStore();
+  const { groups, transactions, fantasyTeams, matchResults, currentUser } = useStore();
 
   const group = groups.find((g) => g.id === id);
   const groupTransactions = transactions.filter((t) => t.groupId === id);
   const balances = calculateBalances(groupTransactions);
+
+  // Count matches played and total fantasy points per member
+  const memberStats = useMemo(() => {
+    if (!group) return {};
+    const stats: Record<string, { matchesPlayed: number; totalPoints: number; wins: number }> = {};
+
+    for (const m of group.members) {
+      const memberTeams = fantasyTeams.filter((t) => t.groupId === id && t.userId === m.id);
+      const memberResults = matchResults.filter((r) => r.groupId === id && r.userId === m.id);
+      const wins = memberResults.filter((r) => r.rank === 1).length;
+
+      stats[m.id] = {
+        matchesPlayed: memberTeams.length,
+        totalPoints: memberTeams.reduce((sum, t) => sum + (t.totalPoints || 0), 0),
+        wins,
+      };
+    }
+    return stats;
+  }, [group, fantasyTeams, matchResults, id]);
 
   const leaderboard = useMemo(() => {
     if (!group) return [];
@@ -24,9 +43,10 @@ export function LeaderboardPage() {
       .map((m) => ({
         ...m,
         balance: balances[m.id] || 0,
+        ...memberStats[m.id],
       }))
       .sort((a, b) => b.balance - a.balance);
-  }, [group, balances]);
+  }, [group, balances, memberStats]);
 
   if (!group) {
     return (
@@ -36,12 +56,14 @@ export function LeaderboardPage() {
     );
   }
 
+  const hasAnyData = groupTransactions.length > 0 || fantasyTeams.some((t) => t.groupId === id);
+
   return (
     <div className="min-h-screen bg-surface">
       <Header variant="page" title="Leaderboard" showBack />
 
       <main className="px-6 pb-8 max-w-2xl mx-auto">
-        {groupTransactions.length === 0 ? (
+        {!hasAnyData ? (
           <div className="text-center py-16">
             <div className="w-20 h-20 rounded-[1.5rem] bg-primary-container/40 mx-auto mb-5 flex items-center justify-center">
               <Crown className="text-primary" size={32} strokeWidth={1.5} />
@@ -86,14 +108,19 @@ export function LeaderboardPage() {
                       {getInitial(member.name)}
                     </div>
 
-                    {/* Name */}
+                    {/* Name + stats */}
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-on-surface truncate">
                         {isMe ? 'You' : member.name}
                       </p>
-                      {isMe && (
-                        <p className="text-xs text-primary font-medium">Your position</p>
-                      )}
+                      <div className="flex gap-2 text-[10px] text-on-surface-variant mt-0.5">
+                        {member.matchesPlayed !== undefined && member.matchesPlayed > 0 && (
+                          <span>{member.matchesPlayed} matches</span>
+                        )}
+                        {member.wins !== undefined && member.wins > 0 && (
+                          <span>· {member.wins} {member.wins === 1 ? 'win' : 'wins'}</span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Balance */}
