@@ -64,7 +64,22 @@ function AuthListener() {
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Refresh data when app comes back to foreground (PWA / tab switch)
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') {
+        fetchIPLSchedule();
+        const state = useStore.getState();
+        if (state.authUser) {
+          fetchFromSupabase();
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [setAuthUser, fetchFromSupabase]);
 
   return null;
