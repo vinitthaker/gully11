@@ -154,7 +154,7 @@ export function HomePage() {
           />
 
           <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up">
-            <div className="max-w-2xl mx-auto bg-white rounded-t-3xl shadow-2xl px-6 pt-4 pb-8">
+            <div className="max-w-2xl mx-auto bg-white rounded-t-3xl shadow-2xl px-6 pt-4 pb-8 max-h-[85vh] overflow-y-auto">
               <div className="w-10 h-1 rounded-full bg-surface-dim mx-auto mb-5" />
 
               <h3 className="font-headline font-bold text-lg text-on-surface mb-5">New League</h3>
