@@ -69,10 +69,10 @@ export function MatchDetailPage() {
 
   // Cooldown for Update Scores button (30 seconds)
   const [cooldown, setCooldown] = useState(0);
-  const cooldownRef = useRef<ReturnType<typeof setInterval>>();
+  const cooldownRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const handleRefreshScoring = useCallback(() => {
     if (cooldown > 0) return;
-    refreshScoring();
+    void refreshScoring();
     setCooldown(30);
     cooldownRef.current = setInterval(() => {
       setCooldown((prev) => {
