@@ -121,12 +121,14 @@ export function CreateTeamPage() {
 
   // Side-by-side players for "All" tab
   const sideBySidePlayers = useMemo(() => {
-    if (activeTab !== 'ALL' || !match) return { home: [], away: [] };
+    if (activeTab !== 'ALL' || !match) return { home: [], away: [], pairs: [] };
+    const homeCode = home?.code ?? '';
+    const awayCode = away?.code ?? '';
     const homePlayers = allPlayers
-      .filter((p) => p.team === match.teamHome)
+      .filter((p) => p.team === homeCode)
       .sort((a, b) => b.credits - a.credits);
     const awayPlayers = allPlayers
-      .filter((p) => p.team === match.teamAway)
+      .filter((p) => p.team === awayCode)
       .sort((a, b) => b.credits - a.credits);
     // Pair them by index for side-by-side display
     const maxLen = Math.max(homePlayers.length, awayPlayers.length);
@@ -160,17 +162,6 @@ export function CreateTeamPage() {
     });
   }
 
-  function handleCaptainTap(playerId: string) {
-    if (captainId === playerId) {
-      setCaptainId('');
-    } else if (viceCaptainId === playerId) {
-      setViceCaptainId('');
-    } else if (!captainId) {
-      setCaptainId(playerId);
-    } else if (!viceCaptainId) {
-      if (playerId !== captainId) setViceCaptainId(playerId);
-    }
-  }
 
   const [saving, setSaving] = useState(false);
 
@@ -337,19 +328,19 @@ export function CreateTeamPage() {
             {activeTab === 'ALL' && sideBySidePlayers.pairs ? (
               <>
                 {/* Side-by-side header */}
-                <div className="sticky top-0 z-10 flex items-center px-2 py-2 bg-gray-900 text-white text-xs font-semibold">
-                  <div className="flex-1 flex items-center gap-1.5 justify-center">
+                <div className="sticky top-0 z-10 flex items-center px-3 py-2.5 bg-surface-dim/80 backdrop-blur-sm border-b border-surface-dim text-xs font-semibold">
+                  <div className="flex-1 flex items-center gap-1.5">
                     <span
-                      className="inline-block w-5 h-5 rounded"
+                      className="inline-block w-4 h-4 rounded"
                       style={{ backgroundColor: home?.color ?? '#666' }}
                     />
-                    <span>{match.teamHome}</span>
+                    <span className="text-on-surface">{home?.code ?? match.teamHome}</span>
                   </div>
-                  <div className="px-2 text-on-surface-variant text-[10px]">Credits</div>
-                  <div className="flex-1 flex items-center gap-1.5 justify-center">
-                    <span>{match.teamAway}</span>
+                  <div className="px-3 text-on-surface-variant text-[10px]">Credits</div>
+                  <div className="flex-1 flex items-center gap-1.5 justify-end">
+                    <span className="text-on-surface">{away?.code ?? match.teamAway}</span>
                     <span
-                      className="inline-block w-5 h-5 rounded"
+                      className="inline-block w-4 h-4 rounded"
                       style={{ backgroundColor: away?.color ?? '#666' }}
                     />
                   </div>
@@ -466,75 +457,107 @@ export function CreateTeamPage() {
       {/* ─── STEP: Captain & Vice Captain ─── */}
       {step === 'captain' && (
         <>
-          <div className="px-4 pt-2 pb-1">
-            <p className="text-sm text-on-surface-variant">
-              Tap to select <span className="font-bold text-primary">Captain (2x)</span> and{' '}
-              <span className="font-bold text-on-surface-variant">Vice Captain (1.5x)</span>
-            </p>
+          {/* Info banner */}
+          <div className="mx-4 mt-2 mb-3 rounded-2xl bg-primary-container/40 p-4">
+            <p className="text-center text-sm font-medium text-on-surface mb-3">Select Captain and Vice Captain</p>
+            <div className="flex items-center justify-center gap-6">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full sunset-gradient flex items-center justify-center text-xs font-bold text-white">C</div>
+                <div>
+                  <p className="text-[10px] text-on-surface-variant">Captain gets</p>
+                  <p className="text-xs font-bold text-on-surface">2x points</p>
+                </div>
+              </div>
+              <div className="w-px h-8 bg-surface-dim" />
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-on-surface-variant flex items-center justify-center text-xs font-bold text-white">VC</div>
+                <div>
+                  <p className="text-[10px] text-on-surface-variant">Vice Captain gets</p>
+                  <p className="text-xs font-bold text-on-surface">1.5x points</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 pb-28">
+          {/* Column headers */}
+          <div className="flex items-center px-4 py-2 border-b border-surface-dim text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">
+            <span className="w-10 text-center">Type</span>
+            <span className="flex-1 ml-2">Player</span>
+            <span className="w-12 text-center">C</span>
+            <span className="w-12 text-center">VC</span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pb-28">
             {selectedPlayers.map((player) => {
               const isCaptain = captainId === player.id;
               const isVC = viceCaptainId === player.id;
               const team = getTeamByName(player.team);
 
               return (
-                <button
+                <div
                   key={player.id}
-                  onClick={() => handleCaptainTap(player.id)}
-                  className={`w-full flex items-center gap-3 py-3.5 px-3 rounded-2xl mb-1 min-h-[52px] transition-all active:scale-[0.98] ${
-                    isCaptain
-                      ? 'bg-primary-container/40'
-                      : isVC
-                        ? 'bg-surface-dim/60'
-                        : 'bg-white'
+                  className={`flex items-center px-4 py-3 border-b border-surface-dim/50 ${
+                    isCaptain || isVC ? 'bg-primary-container/20' : ''
                   }`}
                 >
-                  {/* Badge */}
-                  <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                  {/* Role badge */}
+                  <div className="w-10 flex flex-col items-center gap-0.5 shrink-0">
+                    <span
+                      className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold"
+                      style={{
+                        backgroundColor: team?.color ?? '#666',
+                        color: team?.textColor ?? '#fff',
+                      }}
+                    >
+                      {player.team}
+                    </span>
+                    <span className="text-[9px] text-on-surface-variant font-medium">{ROLE_LABELS[player.role]}</span>
+                  </div>
+
+                  {/* Name + credits */}
+                  <div className="flex-1 ml-2 min-w-0">
+                    <p className="font-semibold text-on-surface text-sm truncate">{player.name}</p>
+                    <p className="text-[10px] text-on-surface-variant">{player.credits} cr</p>
+                  </div>
+
+                  {/* Captain button */}
+                  <button
+                    onClick={() => {
+                      if (isCaptain) {
+                        setCaptainId('');
+                      } else {
+                        if (viceCaptainId === player.id) setViceCaptainId('');
+                        setCaptainId(player.id);
+                      }
+                    }}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold mx-1 transition-all active:scale-90 ${
                       isCaptain
                         ? 'sunset-gradient shadow-md'
-                        : isVC
-                          ? 'bg-on-surface-variant text-white'
-                          : 'bg-surface-dim text-on-surface-variant'
+                        : 'border-2 border-surface-dim text-on-surface-variant'
                     }`}
                   >
-                    {isCaptain ? 'C' : isVC ? 'VC' : ROLE_LABELS[player.role]}
-                  </div>
+                    C
+                  </button>
 
-                  {/* Name + team */}
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="font-semibold text-on-surface text-sm truncate">
-                      {player.name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span
-                        className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold"
-                        style={{
-                          backgroundColor: team?.color ?? '#666',
-                          color: team?.textColor ?? '#fff',
-                        }}
-                      >
-                        {player.team}
-                      </span>
-                      <span className="text-[10px] text-on-surface-variant">{player.credits} cr</span>
-                    </div>
-                  </div>
-
-                  {/* Multiplier */}
-                  {isCaptain && (
-                    <span className="text-xs font-bold text-primary px-2 py-1 rounded-full bg-primary-container">
-                      2x
-                    </span>
-                  )}
-                  {isVC && (
-                    <span className="text-xs font-bold text-on-surface-variant px-2 py-1 rounded-full bg-surface-dim">
-                      1.5x
-                    </span>
-                  )}
-                </button>
+                  {/* Vice Captain button */}
+                  <button
+                    onClick={() => {
+                      if (isVC) {
+                        setViceCaptainId('');
+                      } else {
+                        if (captainId === player.id) setCaptainId('');
+                        setViceCaptainId(player.id);
+                      }
+                    }}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold mx-1 transition-all active:scale-90 ${
+                      isVC
+                        ? 'bg-gray-700 text-white shadow-md'
+                        : 'border-2 border-surface-dim text-on-surface-variant'
+                    }`}
+                  >
+                    VC
+                  </button>
+                </div>
               );
             })}
           </div>
