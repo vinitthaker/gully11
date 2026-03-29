@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Trophy, Users, Pencil, Clock, ChevronDown, ChevronUp, RefreshCw, Info } from 'lucide-react';
+import { Trophy, Users, Pencil, Clock, ChevronDown, ChevronUp, RefreshCw, Info, ArrowLeftRight } from 'lucide-react';
 import { useStore } from '../store';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
@@ -262,6 +262,19 @@ export function MatchDetailPage() {
                 {getEffectivePoints(team.userId)} pts
               </span>
             )
+          )}
+
+          {/* Compare button (not for yourself) */}
+          {!isMe && existingFantasyTeam && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/group/${groupId}/match/${matchId}/compare/${team.userId}`);
+              }}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-primary-container/40 shrink-0 active:scale-90 transition-transform"
+            >
+              <ArrowLeftRight size={12} className="text-primary" />
+            </button>
           )}
 
           {isExpanded ? <ChevronUp size={16} className="text-on-surface-variant shrink-0" /> : <ChevronDown size={16} className="text-on-surface-variant shrink-0" />}

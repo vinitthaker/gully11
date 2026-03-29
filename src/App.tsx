@@ -8,6 +8,7 @@ import { HomePage } from './pages/HomePage';
 import { GroupDashboardPage } from './pages/GroupDashboardPage';
 import { MatchesPage } from './pages/MatchesPage';
 import { MatchDetailPage } from './pages/MatchDetailPage';
+import { CompareTeamsPage } from './pages/CompareTeamsPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { SettlementsPage } from './pages/SettlementsPage';
 import { MembersPage } from './pages/MembersPage';
@@ -92,6 +93,7 @@ function AppRoutes() {
       <Route path="/group/:id" element={<AppShell><GroupDashboardPage /></AppShell>} />
       <Route path="/group/:id/matches" element={<AppShell><MatchesPage /></AppShell>} />
       <Route path="/group/:id/match/:matchId" element={<AppShell><MatchDetailPage /></AppShell>} />
+      <Route path="/group/:id/match/:matchId/compare/:compareUserId" element={<AppShell><CompareTeamsPage /></AppShell>} />
       <Route path="/group/:id/leaderboard" element={<AppShell><LeaderboardPage /></AppShell>} />
       <Route path="/group/:id/settlements" element={<AppShell><SettlementsPage /></AppShell>} />
       <Route path="/group/:id/members" element={<AppShell><MembersPage /></AppShell>} />
