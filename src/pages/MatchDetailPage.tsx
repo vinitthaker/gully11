@@ -60,7 +60,7 @@ export function MatchDetailPage() {
     matchId,
     matchStarted,
     teams: allTeams,
-    enabled: matchStarted && allTeams.length > 0 && !hasResults,
+    enabled: matchStarted && allTeams.length > 0,
     isAdmin: !!isAdmin,
     authUserId: authUser?.id,
   });
@@ -285,15 +285,25 @@ export function MatchDetailPage() {
                     <span className="text-[8px] font-bold text-white bg-on-surface-variant rounded-full w-[16px] h-[16px] flex items-center justify-center shrink-0">V</span>
                   )}
                   {player.pts && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      {/* Stat summary */}
-                      <span className="text-[9px] text-on-surface-variant">
-                        {player.pts.breakdown.runs > 0 ? `${player.pts.breakdown.runs}r` : ''}
-                        {player.pts.breakdown.fours > 0 ? `(${player.pts.breakdown.fours}×4` : ''}
-                        {player.pts.breakdown.sixes > 0 ? ` ${player.pts.breakdown.sixes}×6)` : player.pts.breakdown.fours > 0 ? ')' : ''}
-                        {player.pts.breakdown.wickets > 0 ? ` ${player.pts.breakdown.wickets}w` : ''}
-                        {player.pts.breakdown.catches > 0 ? ` ${player.pts.breakdown.catches}c` : ''}
-                      </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Stat chips */}
+                      <div className="flex items-center gap-1 flex-wrap justify-end">
+                        {player.pts.breakdown.runs > 0 && (
+                          <span className="text-[9px] bg-blue-50 text-blue-700 px-1 py-0.5 rounded font-medium">
+                            {player.pts.breakdown.runs} runs
+                          </span>
+                        )}
+                        {player.pts.breakdown.wickets > 0 && (
+                          <span className="text-[9px] bg-red-50 text-red-700 px-1 py-0.5 rounded font-medium">
+                            {player.pts.breakdown.wickets}w
+                          </span>
+                        )}
+                        {player.pts.breakdown.catches > 0 && (
+                          <span className="text-[9px] bg-green-50 text-green-700 px-1 py-0.5 rounded font-medium">
+                            {player.pts.breakdown.catches}c
+                          </span>
+                        )}
+                      </div>
                       <span className={`text-xs font-bold min-w-[30px] text-right ${
                         player.pts.totalPoints > 0 ? 'text-owed' : player.pts.totalPoints < 0 ? 'text-owe' : 'text-on-surface-variant'
                       }`}>
