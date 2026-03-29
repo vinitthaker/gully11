@@ -41,13 +41,14 @@ export function GroupDashboardPage() {
   const groupTransactions = transactions.filter((t) => t.groupId === id);
   const completedMatchIds = new Set(groupResults.map((r) => r.matchId));
 
-  // Next 2 upcoming matches
+  // Next 2 upcoming matches (hide past matches even if not finalized)
+  const now = Date.now();
   const upcomingMatches = useMemo(() => {
     return iplSchedule
-      .filter((m) => !completedMatchIds.has(m.id))
+      .filter((m) => !completedMatchIds.has(m.id) && m.matchDate > now - 5 * 60 * 60 * 1000)
       .sort((a, b) => a.matchDate - b.matchDate)
       .slice(0, 2);
-  }, [iplSchedule, completedMatchIds]);
+  }, [iplSchedule, completedMatchIds, now]);
 
   // Recent completed results (last 3)
   const recentCompleted = useMemo(() => {
