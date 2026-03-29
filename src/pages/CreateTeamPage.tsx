@@ -760,41 +760,20 @@ function PlayerSideCell({
             : ''
       }`}
     >
-      {side === 'left' ? (
-        <>
-          <div
-            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all ${
-              isSelected ? 'bg-primary text-white' : 'border-2 border-surface-dim'
-            }`}
-          >
-            {isSelected && <Check size={12} strokeWidth={3} />}
-          </div>
-          <div className="flex-1 text-left min-w-0">
-            <p className="font-semibold text-on-surface text-xs truncate">{player.name}</p>
-            <span className="text-[10px] text-on-surface-variant font-medium">{ROLE_LABELS[player.role]}</span>
-          </div>
-          <span className={`text-xs font-bold shrink-0 ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`}>
-            {player.credits}
-          </span>
-        </>
-      ) : (
-        <>
-          <span className={`text-xs font-bold shrink-0 ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`}>
-            {player.credits}
-          </span>
-          <div className="flex-1 text-right min-w-0">
-            <p className="font-semibold text-on-surface text-xs truncate">{player.name}</p>
-            <span className="text-[10px] text-on-surface-variant font-medium">{ROLE_LABELS[player.role]}</span>
-          </div>
-          <div
-            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all ${
-              isSelected ? 'bg-primary text-white' : 'border-2 border-surface-dim'
-            }`}
-          >
-            {isSelected && <Check size={12} strokeWidth={3} />}
-          </div>
-        </>
-      )}
+      <div
+        className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all ${
+          isSelected ? 'bg-primary text-white' : 'border-2 border-surface-dim'
+        }`}
+      >
+        {isSelected && <Check size={12} strokeWidth={3} />}
+      </div>
+      <div className={`flex-1 min-w-0 ${side === 'left' ? 'text-left' : 'text-left'}`}>
+        <p className="font-semibold text-on-surface text-xs truncate">{player.name}</p>
+        <span className="text-[10px] text-on-surface-variant font-medium">{ROLE_LABELS[player.role]}</span>
+      </div>
+      <span className={`text-xs font-bold shrink-0 ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`}>
+        {player.credits}
+      </span>
     </button>
   );
 }
