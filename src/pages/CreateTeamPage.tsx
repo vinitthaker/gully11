@@ -30,17 +30,15 @@ export function CreateTeamPage() {
   const matchId = Number(matchIdStr);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const startInEdit = searchParams.get('edit') === 'true';
+  const _startInEdit = searchParams.get('edit') === 'true'; // kept for URL compat
 
   const { iplSchedule, currentUser, saveFantasyTeam, getFantasyTeam } = useStore();
   const match = iplSchedule.find((m) => m.id === matchId);
 
   const existingTeam = getFantasyTeam(matchId);
 
-  // State — always start in select mode (preview is shown on match detail page)
-  // If editing existing team, start in select mode with players pre-filled
+  // Always start in select mode (preview is shown on match detail page)
   const [step, setStep] = useState<Step>('select');
-  const [isEditing, setIsEditing] = useState(!!existingTeam);
   const [activeTab, setActiveTab] = useState<TabRole>('ALL');
   const [selected, setSelected] = useState<Set<string>>(() => {
     if (existingTeam) return new Set(existingTeam.players.map((p) => p.playerId));
