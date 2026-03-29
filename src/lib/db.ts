@@ -200,6 +200,15 @@ export async function updateGroupName(groupId: string, name: string): Promise<vo
   if (error) throw error;
 }
 
+export async function updateEntryAmount(groupId: string, amount: number): Promise<void> {
+  const { error } = await supabase
+    .from('gully11_groups')
+    .update({ entry_amount: amount })
+    .eq('id', groupId);
+
+  if (error) throw error;
+}
+
 // ─── Match Results ──────────────────────────────────────────────
 
 export async function fetchGroupResults(groupId: string): Promise<MatchResult[]> {

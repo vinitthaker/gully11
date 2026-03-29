@@ -14,14 +14,17 @@ export function GroupSettingsPage() {
   usePageTitle('Group Settings | Gully11');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser, groups, deleteGroup, updateGroupName, isAuthenticated } = useStore();
+  const { currentUser, groups, deleteGroup, updateGroupName, updateEntryAmount, isAuthenticated } = useStore();
   const { signInWithGoogle } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
+  const [editingFee, setEditingFee] = useState(false);
+  const [feeValue, setFeeValue] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const feeInputRef = useRef<HTMLInputElement>(null);
 
   const group = groups.find((g) => g.id === id);
 
@@ -121,10 +124,53 @@ export function GroupSettingsPage() {
 
         {/* Entry amount */}
         <p className="text-label text-on-surface-variant mt-6 mb-3">ENTRY AMOUNT</p>
-        <div className="bg-white rounded-2xl card-shadow p-4">
-          <p className="font-headline font-bold text-on-surface text-lg">
-            {formatAmount(group.entryAmount)} <span className="text-sm font-normal text-on-surface-variant">per match</span>
-          </p>
+        <div className="bg-white rounded-2xl card-shadow p-4 flex items-center gap-3">
+          {editingFee ? (
+            <>
+              <span className="text-on-surface font-bold text-lg">₹</span>
+              <input
+                ref={feeInputRef}
+                type="number"
+                value={feeValue}
+                onChange={(e) => setFeeValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && Number(feeValue) > 0) {
+                    updateEntryAmount(group!.id, Number(feeValue));
+                    setEditingFee(false);
+                  }
+                  if (e.key === 'Escape') setEditingFee(false);
+                }}
+                className="flex-1 font-bold text-on-surface text-lg bg-transparent border-b-2 border-primary outline-none py-1"
+                autoFocus
+                min={1}
+              />
+              <button
+                onClick={() => {
+                  if (Number(feeValue) > 0) {
+                    updateEntryAmount(group!.id, Number(feeValue));
+                    setEditingFee(false);
+                  }
+                }}
+                className="text-primary font-semibold text-sm"
+              >
+                Save
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="flex-1 font-headline font-bold text-on-surface text-lg">
+                {formatAmount(group.entryAmount)} <span className="text-sm font-normal text-on-surface-variant">per match</span>
+              </p>
+              {isAdmin && (
+                <button
+                  onClick={() => { setFeeValue(String(group!.entryAmount)); setEditingFee(true); }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-dim transition-colors"
+                >
+                  <Pencil size={16} className="text-on-surface-variant" />
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         {/* Invite link */}

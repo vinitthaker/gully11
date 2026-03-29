@@ -37,6 +37,7 @@ interface AppState {
   // Group actions
   addGroup: (name: string, emoji?: string, entryAmount?: number) => Promise<Group>;
   updateGroupName: (groupId: string, name: string) => Promise<void>;
+  updateEntryAmount: (groupId: string, amount: number) => Promise<void>;
   deleteGroup: (groupId: string) => Promise<void>;
 
   // Match actions
@@ -157,6 +158,19 @@ export const useStore = create<AppState>()(
           await db.updateGroupName(groupId, name);
         } catch (e) {
           console.error('Failed to update group name:', e);
+        }
+      },
+
+      updateEntryAmount: async (groupId, amount) => {
+        set((s) => ({
+          groups: s.groups.map((g) =>
+            g.id === groupId ? { ...g, entryAmount: amount } : g
+          ),
+        }));
+        try {
+          await db.updateEntryAmount(groupId, amount);
+        } catch (e) {
+          console.error('Failed to update entry amount:', e);
         }
       },
 
