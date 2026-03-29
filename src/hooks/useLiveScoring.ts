@@ -89,45 +89,16 @@ function extractMatchScore(scorecard: cricbuzz.CricbuzzInning[]): MatchScoreInfo
   const innings: { team: string; score: string; overs: string }[] = [];
 
   for (const inning of scorecard) {
-    // Sum runs and wickets from batsmen
-    let totalRuns = 0;
-    let totalWickets = 0;
-    let maxOvers = '0';
-    const batsmen = inning.batsman || [];
-
-    for (const bat of batsmen) {
-      totalRuns += bat.runs || 0;
-      if (bat.outdec && bat.outdec !== 'batting' && bat.outdec !== 'not out') {
-        totalWickets++;
-      }
-    }
-
-    // Get overs from bowlers (max overs in the inning)
-    const bowlers = inning.bowler || [];
-    let totalBalls = 0;
-    for (const bowl of bowlers) {
-      const overs = bowl.overs || 0;
-      const whole = Math.floor(overs);
-      const frac = Math.round((overs - whole) * 10);
-      totalBalls += whole * 6 + frac;
-    }
-    const overWhole = Math.floor(totalBalls / 6);
-    const overBalls = totalBalls % 6;
-    maxOvers = overBalls > 0 ? `${overWhole}.${overBalls}` : `${overWhole}`;
-
-    // Also add extras if we can calculate from bowler runs vs batsman runs
-    const bowlerRuns = bowlers.reduce((sum, b) => sum + (b.runs || 0), 0);
-    if (bowlerRuns > totalRuns) {
-      totalRuns = bowlerRuns; // Bowler runs include extras
-    }
-
-    // Try to determine team name from batting order
-    const teamName = `Innings ${inning.inningsid}`;
+    // Use built-in Cricbuzz data if available
+    const teamName = inning.batteamsname || `Innings ${inning.inningsid}`;
+    const score = inning.score !== undefined ? inning.score : 0;
+    const wickets = inning.wickets !== undefined ? inning.wickets : 0;
+    const overs = inning.overs !== undefined ? String(inning.overs) : '0';
 
     innings.push({
       team: teamName,
-      score: `${totalRuns}/${totalWickets}`,
-      overs: maxOvers,
+      score: `${score}/${wickets}`,
+      overs,
     });
   }
 

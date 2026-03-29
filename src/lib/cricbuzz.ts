@@ -41,6 +41,12 @@ export interface CricbuzzInning {
   batsman: CricbuzzBatsman[];
   bowler: CricbuzzBowler[];
   fielder?: CricbuzzFielder[];
+  batteamname?: string;
+  batteamsname?: string;
+  score?: number;
+  wickets?: number;
+  overs?: number;
+  runrate?: number;
 }
 
 export interface CricbuzzMatchInfo {

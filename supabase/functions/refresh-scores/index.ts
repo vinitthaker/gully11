@@ -100,13 +100,11 @@ function extractStats(scorecard: any[]): Map<string, Stats> {
 function extractMatchScore(scorecard: any[]) {
   const innings: { team: string; score: string; overs: string }[] = [];
   for (const inn of scorecard) {
-    let runs = 0, wkts = 0, totalBalls = 0;
-    for (const b of inn.batsman || []) { runs += b.runs || 0; if (b.outdec && b.outdec !== 'batting' && b.outdec !== 'not out') wkts++; }
-    for (const b of inn.bowler || []) { const w = Math.floor(b.overs || 0); const f = Math.round(((b.overs || 0) - w) * 10); totalBalls += w * 6 + f; }
-    const br = (inn.bowler || []).reduce((s: number, b: any) => s + (b.runs || 0), 0);
-    if (br > runs) runs = br;
-    const ov = Math.floor(totalBalls / 6), ob = totalBalls % 6;
-    innings.push({ team: `Innings ${inn.inningsid}`, score: `${runs}/${wkts}`, overs: ob > 0 ? `${ov}.${ob}` : `${ov}` });
+    const team = inn.batteamsname || `Innings ${inn.inningsid}`;
+    const score = inn.score !== undefined ? inn.score : 0;
+    const wickets = inn.wickets !== undefined ? inn.wickets : 0;
+    const overs = inn.overs !== undefined ? String(inn.overs) : '0';
+    innings.push({ team, score: `${score}/${wickets}`, overs });
   }
   return { innings, status: scorecard.length >= 2 ? 'Complete' : 'In Progress' };
 }
