@@ -103,9 +103,28 @@ function extractMatchScore(scorecard: cricbuzz.CricbuzzInning[]): MatchScoreInfo
     });
   }
 
+  // Match is complete only when the last innings is finished
+  // (all out, overs done, or target chased)
+  let status = 'In Progress';
+  if (scorecard.length >= 2) {
+    const lastInning = scorecard[scorecard.length - 1];
+    const wickets = lastInning.wickets ?? 0;
+    const overs = lastInning.overs ?? 0;
+    const isAllOut = wickets >= 10;
+    const isOversDone = overs >= 20;
+    // Check if chasing team passed the target
+    const firstInningScore = scorecard[0].score ?? 0;
+    const lastInningScore = lastInning.score ?? 0;
+    const targetChased = lastInningScore > firstInningScore;
+
+    if (isAllOut || isOversDone || targetChased) {
+      status = 'Complete';
+    }
+  }
+
   return {
     innings,
-    status: scorecard.length >= 2 ? 'Complete' : 'In Progress',
+    status,
   };
 }
 
