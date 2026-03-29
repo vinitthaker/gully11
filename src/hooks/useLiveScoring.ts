@@ -255,7 +255,11 @@ export function useLiveScoring({
       setLastUpdated(Date.now());
     } catch (e: any) {
       console.error('API refresh error:', e);
-      setError(e.message || 'Failed to fetch scores from API');
+      // Silently ignore rate-limit (429) errors — cached scores are still valid
+      const msg = e.message || '';
+      if (!msg.includes('429')) {
+        setError(msg || 'Failed to fetch scores from API');
+      }
     } finally {
       setIsRefreshingFromApi(false);
     }

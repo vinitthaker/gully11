@@ -16,6 +16,7 @@ import { GroupSettingsPage } from './pages/GroupSettingsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { JoinGroupPage } from './pages/JoinGroupPage';
 import { CreateTeamPage } from './pages/CreateTeamPage';
+import { UpdateToast } from './components/UpdateToast';
 
 function AuthListener() {
   const setAuthUser = useStore((s) => s.setAuthUser);
@@ -110,6 +111,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthListener />
+      <UpdateToast />
       <div className="max-w-2xl mx-auto min-h-screen bg-surface">
         <AppRoutes />
       </div>

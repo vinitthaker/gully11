@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Trophy, Users, Pencil, Clock, ChevronDown, ChevronUp, RefreshCw, Info, ArrowLeftRight } from 'lucide-react';
 import { useStore } from '../store';
@@ -66,6 +66,26 @@ export function MatchDetailPage() {
     isAdmin: !!isAdmin,
     authUserId: authUser?.id,
   });
+
+  // Cooldown for Update Scores button (30 seconds)
+  const [cooldown, setCooldown] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval>>();
+  const handleRefreshScoring = useCallback(() => {
+    if (cooldown > 0) return;
+    refreshScoring();
+    setCooldown(30);
+    cooldownRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [cooldown, refreshScoring]);
+
+  useEffect(() => () => clearInterval(cooldownRef.current), []);
 
   // Map team scores by userId for easy lookup
   const scoresByUser = useMemo(() => {
@@ -609,12 +629,12 @@ export function MatchDetailPage() {
                     {/* Admin: refresh from Cricbuzz API */}
                     {isAdmin && match?.cricbuzzMatchId && !hasResults && (
                       <button
-                        onClick={refreshScoring}
-                        disabled={isRefreshingFromApi}
+                        onClick={handleRefreshScoring}
+                        disabled={isRefreshingFromApi || cooldown > 0}
                         className="flex items-center gap-1 text-xs font-semibold text-primary disabled:opacity-50 bg-primary/10 rounded-full px-3 py-1"
                       >
                         <RefreshCw size={12} className={isRefreshingFromApi ? 'animate-spin' : ''} />
-                        {isRefreshingFromApi ? 'Updating...' : 'Update Scores'}
+                        {isRefreshingFromApi ? 'Updating...' : cooldown > 0 ? `Wait ${cooldown}s` : 'Update Scores'}
                       </button>
                     )}
                   </div>
