@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronLeft } from 'lucide-react';
 import { useStore } from '../store';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -29,8 +29,7 @@ export function CreateTeamPage() {
   const { id: groupId, matchId: matchIdStr } = useParams<{ id: string; matchId: string }>();
   const matchId = Number(matchIdStr);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  // searchParams kept for URL compat (?edit=true)
+  // URL params like ?edit=true handled implicitly
 
   const { iplSchedule, currentUser, saveFantasyTeam, getFantasyTeam } = useStore();
   const match = iplSchedule.find((m) => m.id === matchId);
