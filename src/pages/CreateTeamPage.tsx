@@ -48,6 +48,9 @@ export function CreateTeamPage() {
   const [captainId, setCaptainId] = useState<string>(existingTeam?.captainId ?? '');
   const [viceCaptainId, setViceCaptainId] = useState<string>(existingTeam?.viceCaptainId ?? '');
 
+  const home = match ? getTeamByName(match.teamHome) : undefined;
+  const away = match ? getTeamByName(match.teamAway) : undefined;
+
   // Players for this match
   const allPlayers = useMemo(() => {
     if (!match) return [];
@@ -216,9 +219,6 @@ export function CreateTeamPage() {
       </div>
     );
   }
-
-  const home = getTeamByName(match.teamHome);
-  const away = getTeamByName(match.teamAway);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
