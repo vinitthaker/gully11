@@ -37,9 +37,10 @@ export function CreateTeamPage() {
 
   const existingTeam = getFantasyTeam(matchId);
 
-  // State — if coming from Edit button, go straight to select mode
-  const [step, setStep] = useState<Step>(existingTeam && !startInEdit ? 'preview' : 'select');
-  const [isEditing, setIsEditing] = useState(startInEdit && !!existingTeam);
+  // State — always start in select mode (preview is shown on match detail page)
+  // If editing existing team, start in select mode with players pre-filled
+  const [step, setStep] = useState<Step>('select');
+  const [isEditing, setIsEditing] = useState(!!existingTeam);
   const [activeTab, setActiveTab] = useState<TabRole>('ALL');
   const [selected, setSelected] = useState<Set<string>>(() => {
     if (existingTeam) return new Set(existingTeam.players.map((p) => p.playerId));
@@ -196,18 +197,12 @@ export function CreateTeamPage() {
   }
 
   function handleBack() {
-    if (step === 'preview' && !isEditing) {
-      // Viewing existing team preview — back goes to match detail
-      navigate(`/group/${groupId}/match/${matchId}`);
-    } else if (step === 'preview') {
+    if (step === 'preview') {
       setStep('captain');
     } else if (step === 'captain') {
       setStep('select');
-    } else if (step === 'select' && existingTeam) {
-      // Editing existing team — back goes to match detail (not preview loop)
-      navigate(`/group/${groupId}/match/${matchId}`);
     } else {
-      // New team creation — back goes to match detail
+      // Back from select → match detail
       navigate(`/group/${groupId}/match/${matchId}`);
     }
   }
