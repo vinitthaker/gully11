@@ -2,7 +2,8 @@
 // Docs: https://rapidapi.com/cricbuzz-cricket/api/cricbuzz-cricket
 
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || '';
-const BASE_URL = 'https://cricbuzz-cricket.p.rapidapi.com';
+const RAPIDAPI_HOST = import.meta.env.VITE_RAPIDAPI_HOST || 'cricbuzz-cricket2.p.rapidapi.com';
+const BASE_URL = `https://${RAPIDAPI_HOST}`;
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ async function apiFetch<T>(path: string): Promise<T> {
 
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: {
-      'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+      'x-rapidapi-host': RAPIDAPI_HOST,
       'x-rapidapi-key': RAPIDAPI_KEY,
     },
   });
@@ -84,7 +85,7 @@ async function apiFetch<T>(path: string): Promise<T> {
 
 /** Get scorecard for a match */
 export async function getScorecard(matchId: number): Promise<CricbuzzInning[]> {
-  const data = await apiFetch<{ scorecard: CricbuzzInning[] }>(`/mcenter/v1/${matchId}/hscard`);
+  const data = await apiFetch<{ scorecard: CricbuzzInning[] }>(`/mcenter/v1/${matchId}/scard`);
   return data.scorecard || [];
 }
 
