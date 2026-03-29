@@ -7,6 +7,7 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useLiveScoring } from '../hooks/useLiveScoring';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { getTeamByName, calculatePayouts } from '../utils/ipl';
 import { getAvatarColor, getInitial } from '../utils/avatarColor';
 import { formatAmount } from '../utils/currency';
@@ -18,7 +19,7 @@ export function MatchDetailPage() {
   const { id: groupId, matchId: matchIdStr } = useParams<{ id: string; matchId: string }>();
   const matchId = Number(matchIdStr);
   const navigate = useNavigate();
-  const { groups, iplSchedule, matchResults, currentUser, submitResults, getFantasyTeam, getFantasyTeamsByMatch } = useStore();
+  const { groups, iplSchedule, matchResults, currentUser, submitResults, getFantasyTeam, getFantasyTeamsByMatch, fetchFromSupabase } = useStore();
 
   const group = groups.find((g) => g.id === groupId);
   const match = iplSchedule.find((m) => m.id === matchId);
@@ -54,6 +55,7 @@ export function MatchDetailPage() {
     lastUpdated,
     error: scoringError,
     refresh: refreshScoring,
+    refreshFromCache,
     isRefreshingFromApi,
   } = useLiveScoring({
     cricbuzzMatchId: match?.cricbuzzMatchId,
@@ -345,9 +347,14 @@ export function MatchDetailPage() {
     );
   }
 
+  const handleRefresh = async () => {
+    await Promise.all([fetchFromSupabase(), refreshFromCache()]);
+  };
+
   return (
     <div className="min-h-screen bg-surface">
       <Header variant="page" title={`Match #${matchId}`} showBack />
+      <PullToRefresh onRefresh={handleRefresh}>
 
       <main className="px-6 pb-8 max-w-2xl mx-auto">
         {/* Big match display */}
@@ -771,6 +778,7 @@ export function MatchDetailPage() {
           </div>
         </>
       )}
+      </PullToRefresh>
     </div>
   );
 }

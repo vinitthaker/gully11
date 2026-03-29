@@ -4,6 +4,7 @@ import { Calendar, Trophy, ArrowRightLeft, Users, Settings, ChevronRight, Crown,
 import { useStore } from '../store';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { getTeamByName, calculatePayouts } from '../utils/ipl';
 import { getAvatarColor, getInitial } from '../utils/avatarColor';
@@ -13,7 +14,7 @@ import { formatAmount } from '../utils/currency';
 export function GroupDashboardPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { groups, iplSchedule, matchResults, transactions, currentUser } = useStore();
+  const { groups, iplSchedule, matchResults, transactions, currentUser, fetchFromSupabase } = useStore();
 
   const group = groups.find((g) => g.id === id);
   usePageTitle(group ? `${group.name} | Gully11` : 'Gully11');
@@ -99,7 +100,7 @@ export function GroupDashboardPage() {
           ) : undefined
         }
       />
-
+      <PullToRefresh onRefresh={fetchFromSupabase}>
       <main className="px-6 pb-8 max-w-2xl mx-auto">
         {/* Upcoming Matches */}
         {upcomingMatches.length > 0 && (
@@ -380,6 +381,7 @@ export function GroupDashboardPage() {
           </div>
         </section>
       </main>
+      </PullToRefresh>
     </div>
   );
 }

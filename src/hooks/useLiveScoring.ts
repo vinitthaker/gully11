@@ -34,6 +34,7 @@ interface UseLiveScoringResult {
   lastUpdated: number | null;
   error: string | null;
   refresh: () => Promise<void>;  // Admin: fetches from API + saves to cache
+  refreshFromCache: () => Promise<void>;  // All users: reload cached scores from Supabase
   isRefreshingFromApi: boolean;
 }
 
@@ -275,6 +276,7 @@ export function useLiveScoring({
     lastUpdated,
     error,
     refresh: refreshFromApi,
+    refreshFromCache: loadFromCache,
     isRefreshingFromApi,
   };
 }

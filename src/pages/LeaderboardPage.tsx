@@ -4,6 +4,7 @@ import { Crown } from 'lucide-react';
 import { useStore } from '../store';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { getAvatarColor, getInitial } from '../utils/avatarColor';
 import { calculateBalances } from '../utils/balance';
@@ -12,7 +13,7 @@ import { formatAmount } from '../utils/currency';
 export function LeaderboardPage() {
   usePageTitle('Leaderboard | Gully11');
   const { id } = useParams<{ id: string }>();
-  const { groups, transactions, fantasyTeams, matchResults, currentUser } = useStore();
+  const { groups, transactions, fantasyTeams, matchResults, currentUser, fetchFromSupabase } = useStore();
 
   const group = groups.find((g) => g.id === id);
   const groupTransactions = transactions.filter((t) => t.groupId === id);
@@ -61,7 +62,7 @@ export function LeaderboardPage() {
   return (
     <div className="min-h-screen bg-surface">
       <Header variant="page" title="Leaderboard" showBack />
-
+      <PullToRefresh onRefresh={fetchFromSupabase}>
       <main className="px-6 pb-8 max-w-2xl mx-auto">
         {!hasAnyData ? (
           <div className="text-center py-16">
@@ -143,6 +144,7 @@ export function LeaderboardPage() {
           </div>
         )}
       </main>
+      </PullToRefresh>
     </div>
   );
 }
