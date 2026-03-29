@@ -164,8 +164,8 @@ export function HomePage() {
                 <div className="bg-primary-container/30 rounded-2xl p-4">
                   <p className="text-label text-on-primary-container mb-2">HOW IT WORKS</p>
                   <ul className="space-y-1.5 text-xs text-on-surface-variant leading-relaxed">
-                    <li className="flex gap-2"><span className="shrink-0">1.</span>Every member pays the entry fee per match — whether you play or not</li>
-                    <li className="flex gap-2"><span className="shrink-0">2.</span>Play on Dream11 and the admin enters rankings after each match</li>
+                    <li className="flex gap-2"><span className="shrink-0">1.</span>Create your fantasy team before each match</li>
+                    <li className="flex gap-2"><span className="shrink-0">2.</span>Entry fee charged only for matches you participate in</li>
                     <li className="flex gap-2"><span className="shrink-0">3.</span>Top rankers win from the pool, bottom rankers lose their entry</li>
                     <li className="flex gap-2"><span className="shrink-0">4.</span>Settle balances at the end once IPL is complete</li>
                   </ul>

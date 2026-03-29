@@ -286,21 +286,21 @@ export function MatchDetailPage() {
                   )}
                   {player.pts && (
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Stat chips */}
+                      {/* Stat chips with icons */}
                       <div className="flex items-center gap-1 flex-wrap justify-end">
                         {player.pts.breakdown.runs > 0 && (
-                          <span className="text-[9px] bg-blue-50 text-blue-700 px-1 py-0.5 rounded font-medium">
-                            {player.pts.breakdown.runs} runs
+                          <span className="text-[9px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
+                            🏏 {player.pts.breakdown.runs}
                           </span>
                         )}
                         {player.pts.breakdown.wickets > 0 && (
-                          <span className="text-[9px] bg-red-50 text-red-700 px-1 py-0.5 rounded font-medium">
-                            {player.pts.breakdown.wickets}w
+                          <span className="text-[9px] bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
+                            🎳 {player.pts.breakdown.wickets}
                           </span>
                         )}
                         {player.pts.breakdown.catches > 0 && (
-                          <span className="text-[9px] bg-green-50 text-green-700 px-1 py-0.5 rounded font-medium">
-                            {player.pts.breakdown.catches}c
+                          <span className="text-[9px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
+                            🧤 {player.pts.breakdown.catches}
                           </span>
                         )}
                       </div>

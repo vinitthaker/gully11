@@ -305,7 +305,7 @@ export function GroupDashboardPage() {
                 <div>
                   <p className="text-label text-on-surface-variant mb-2">ENTRY FEE</p>
                   <p className="text-sm text-on-surface">
-                    Every member pays <span className="font-bold">₹{group.entryAmount}</span> per match — whether you play on Dream11 or not. Once you've joined, you're in for all matches.
+                    Entry fee is <span className="font-bold">₹{group.entryAmount}</span> per match. Only members who create a fantasy team participate and pay — skip a match, no charge.
                   </p>
                 </div>
 
