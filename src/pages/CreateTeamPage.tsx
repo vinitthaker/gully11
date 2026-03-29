@@ -30,7 +30,7 @@ export function CreateTeamPage() {
   const matchId = Number(matchIdStr);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const _startInEdit = searchParams.get('edit') === 'true'; // kept for URL compat
+  // searchParams kept for URL compat (?edit=true)
 
   const { iplSchedule, currentUser, saveFantasyTeam, getFantasyTeam } = useStore();
   const match = iplSchedule.find((m) => m.id === matchId);
@@ -623,7 +623,7 @@ export function CreateTeamPage() {
             <div className="fixed bottom-0 left-0 right-0 z-10 px-4 py-4 bg-green-800/95 backdrop-blur-md border-t border-white/10">
               <div className="max-w-2xl mx-auto flex gap-3">
                 <button
-                  onClick={() => { setIsEditing(true); setStep('select'); }}
+                  onClick={() => { setStep('select'); }}
                   className="flex-1 bg-white/20 text-white font-semibold rounded-full px-6 py-3.5 text-base min-h-[52px] active:scale-[0.98] transition-all"
                 >
                   Edit
