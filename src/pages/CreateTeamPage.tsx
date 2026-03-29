@@ -9,8 +9,11 @@ import { generateId } from '../utils/id';
 import type { FantasyTeam, FantasyPick } from '../types';
 
 type Step = 'select' | 'captain' | 'preview';
+type TabRole = 'ALL' | PlayerRole;
 
 const ROLES: PlayerRole[] = ['WK', 'BAT', 'AR', 'BOWL'];
+const TABS: TabRole[] = ['ALL', 'WK', 'BAT', 'AR', 'BOWL'];
+const TAB_LABELS: Record<TabRole, string> = { ALL: 'All', WK: 'WK', BAT: 'BAT', AR: 'AR', BOWL: 'BOWL' };
 const ROLE_LABELS: Record<PlayerRole, string> = { WK: 'WK', BAT: 'BAT', AR: 'AR', BOWL: 'BOWL' };
 const ROLE_CONSTRAINTS: Record<PlayerRole, { min: number; max: number }> = {
   WK: { min: 1, max: 8 },
@@ -37,7 +40,7 @@ export function CreateTeamPage() {
   // State — if coming from Edit button, go straight to select mode
   const [step, setStep] = useState<Step>(existingTeam && !startInEdit ? 'preview' : 'select');
   const [isEditing, setIsEditing] = useState(startInEdit && !!existingTeam);
-  const [activeRole, setActiveRole] = useState<PlayerRole>('WK');
+  const [activeTab, setActiveTab] = useState<TabRole>('ALL');
   const [selected, setSelected] = useState<Set<string>>(() => {
     if (existingTeam) return new Set(existingTeam.players.map((p) => p.playerId));
     return new Set();
@@ -111,10 +114,31 @@ export function CreateTeamPage() {
   // Players filtered by active role tab, sorted by credits desc
   const filteredPlayers = useMemo(
     () => allPlayers
-      .filter((p) => p.role === activeRole)
+      .filter((p) => activeTab === 'ALL' || p.role === activeTab)
       .sort((a, b) => b.credits - a.credits),
-    [allPlayers, activeRole]
+    [allPlayers, activeTab]
   );
+
+  // Side-by-side players for "All" tab
+  const sideBySidePlayers = useMemo(() => {
+    if (activeTab !== 'ALL' || !match) return { home: [], away: [] };
+    const homePlayers = allPlayers
+      .filter((p) => p.team === match.teamHome)
+      .sort((a, b) => b.credits - a.credits);
+    const awayPlayers = allPlayers
+      .filter((p) => p.team === match.teamAway)
+      .sort((a, b) => b.credits - a.credits);
+    // Pair them by index for side-by-side display
+    const maxLen = Math.max(homePlayers.length, awayPlayers.length);
+    const pairs: { home: Player | null; away: Player | null }[] = [];
+    for (let i = 0; i < maxLen; i++) {
+      pairs.push({
+        home: homePlayers[i] ?? null,
+        away: awayPlayers[i] ?? null,
+      });
+    }
+    return { home: homePlayers, away: awayPlayers, pairs };
+  }, [allPlayers, activeTab, match]);
 
   // Selected players list (for captain/preview steps)
   const selectedPlayers = useMemo(
@@ -293,79 +317,135 @@ export function CreateTeamPage() {
 
           {/* Role tabs */}
           <div className="px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar">
-            {ROLES.map((role) => (
+            {TABS.map((tab) => (
               <button
-                key={role}
-                onClick={() => setActiveRole(role)}
+                key={tab}
+                onClick={() => setActiveTab(tab)}
                 className={`px-5 py-2 rounded-full text-sm font-semibold transition-all shrink-0 ${
-                  activeRole === role
+                  activeTab === tab
                     ? 'sunset-gradient shadow-lg shadow-primary/20'
                     : 'bg-white card-shadow text-on-surface'
                 }`}
               >
-                {ROLE_LABELS[role]} ({roleCounts[role]})
+                {tab === 'ALL' ? `All (${totalSelected})` : `${TAB_LABELS[tab]} (${roleCounts[tab]})`}
               </button>
             ))}
           </div>
 
           {/* Player list */}
-          <div className="flex-1 overflow-y-auto px-4 pb-28">
-            {filteredPlayers.map((player) => {
-              const isSelected = selected.has(player.id);
-              const disabled = !isSelected && !canSelect(player);
-              const team = getTeamByName(player.team);
-
-              return (
-                <button
-                  key={player.id}
-                  onClick={() => !disabled && togglePlayer(player)}
-                  disabled={disabled}
-                  className={`w-full flex items-center gap-3 py-3 px-3 rounded-2xl mb-1 min-h-[52px] transition-all active:scale-[0.98] ${
-                    isSelected
-                      ? 'bg-primary-container/30'
-                      : disabled
-                        ? 'opacity-40'
-                        : 'bg-white'
-                  }`}
-                >
-                  {/* Player info */}
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="font-semibold text-on-surface text-sm truncate">
-                      {player.name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span
-                        className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold"
-                        style={{
-                          backgroundColor: team?.color ?? '#666',
-                          color: team?.textColor ?? '#fff',
-                        }}
-                      >
-                        {player.team}
-                      </span>
+          <div className="flex-1 overflow-y-auto pb-28">
+            {activeTab === 'ALL' && sideBySidePlayers.pairs ? (
+              <>
+                {/* Side-by-side header */}
+                <div className="sticky top-0 z-10 flex items-center px-2 py-2 bg-gray-900 text-white text-xs font-semibold">
+                  <div className="flex-1 flex items-center gap-1.5 justify-center">
+                    <span
+                      className="inline-block w-5 h-5 rounded"
+                      style={{ backgroundColor: home?.color ?? '#666' }}
+                    />
+                    <span>{match.teamHome}</span>
+                  </div>
+                  <div className="px-2 text-on-surface-variant text-[10px]">Credits</div>
+                  <div className="flex-1 flex items-center gap-1.5 justify-center">
+                    <span>{match.teamAway}</span>
+                    <span
+                      className="inline-block w-5 h-5 rounded"
+                      style={{ backgroundColor: away?.color ?? '#666' }}
+                    />
+                  </div>
+                </div>
+                {/* Side-by-side rows */}
+                <div className="px-1">
+                  {sideBySidePlayers.pairs.map((pair, i) => (
+                    <div key={i} className="flex items-stretch border-b border-surface-dim/50">
+                      {/* Home player (left) */}
+                      {pair.home ? (
+                        <PlayerSideCell
+                          player={pair.home}
+                          isSelected={selected.has(pair.home.id)}
+                          disabled={!selected.has(pair.home.id) && !canSelect(pair.home)}
+                          onToggle={togglePlayer}
+                          side="left"
+                        />
+                      ) : (
+                        <div className="flex-1" />
+                      )}
+                      {/* Away player (right) */}
+                      {pair.away ? (
+                        <PlayerSideCell
+                          player={pair.away}
+                          isSelected={selected.has(pair.away.id)}
+                          disabled={!selected.has(pair.away.id) && !canSelect(pair.away)}
+                          onToggle={togglePlayer}
+                          side="right"
+                        />
+                      ) : (
+                        <div className="flex-1" />
+                      )}
                     </div>
-                  </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="px-4">
+                {filteredPlayers.map((player) => {
+                  const isSelected = selected.has(player.id);
+                  const disabled = !isSelected && !canSelect(player);
+                  const team = getTeamByName(player.team);
 
-                  {/* Credits */}
-                  <span className={`text-sm font-bold shrink-0 mr-2 ${
-                    isSelected ? 'text-primary' : 'text-on-surface-variant'
-                  }`}>
-                    {player.credits}
-                  </span>
+                  return (
+                    <button
+                      key={player.id}
+                      onClick={() => !disabled && togglePlayer(player)}
+                      disabled={disabled}
+                      className={`w-full flex items-center gap-3 py-3 px-3 rounded-2xl mb-1 min-h-[52px] transition-all active:scale-[0.98] ${
+                        isSelected
+                          ? 'bg-primary-container/30'
+                          : disabled
+                            ? 'opacity-40'
+                            : 'bg-white'
+                      }`}
+                    >
+                      {/* Player info */}
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="font-semibold text-on-surface text-sm truncate">
+                          {player.name}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span
+                            className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold"
+                            style={{
+                              backgroundColor: team?.color ?? '#666',
+                              color: team?.textColor ?? '#fff',
+                            }}
+                          >
+                            {player.team}
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* Select circle */}
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                      isSelected
-                        ? 'bg-primary text-white'
-                        : 'border-2 border-surface-dim'
-                    }`}
-                  >
-                    {isSelected && <Check size={16} strokeWidth={3} />}
-                  </div>
-                </button>
-              );
-            })}
+                      {/* Credits */}
+                      <span className={`text-sm font-bold shrink-0 mr-2 ${
+                        isSelected ? 'text-primary' : 'text-on-surface-variant'
+                      }`}>
+                        {player.credits}
+                      </span>
+
+                      {/* Select circle */}
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                          isSelected
+                            ? 'bg-primary text-white'
+                            : 'border-2 border-surface-dim'
+                        }`}
+                      >
+                        {isSelected && <Check size={16} strokeWidth={3} />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Sticky bottom bar */}
@@ -627,5 +707,71 @@ function FieldRow({
         })}
       </div>
     </div>
+  );
+}
+
+function PlayerSideCell({
+  player,
+  isSelected,
+  disabled,
+  onToggle,
+  side,
+}: {
+  player: Player;
+  isSelected: boolean;
+  disabled: boolean;
+  onToggle: (p: Player) => void;
+  side: 'left' | 'right';
+}) {
+  return (
+    <button
+      onClick={() => !disabled && onToggle(player)}
+      disabled={disabled}
+      className={`flex-1 flex items-center gap-1.5 py-2.5 px-2 transition-all active:scale-[0.98] ${
+        side === 'left' ? 'border-r border-surface-dim/30' : ''
+      } ${
+        isSelected
+          ? 'bg-primary-container/30'
+          : disabled
+            ? 'opacity-35'
+            : ''
+      }`}
+    >
+      {side === 'left' ? (
+        <>
+          <div
+            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all ${
+              isSelected ? 'bg-primary text-white' : 'border-2 border-surface-dim'
+            }`}
+          >
+            {isSelected && <Check size={12} strokeWidth={3} />}
+          </div>
+          <div className="flex-1 text-left min-w-0">
+            <p className="font-semibold text-on-surface text-xs truncate">{player.name}</p>
+            <span className="text-[10px] text-on-surface-variant font-medium">{ROLE_LABELS[player.role]}</span>
+          </div>
+          <span className={`text-xs font-bold shrink-0 ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`}>
+            {player.credits}
+          </span>
+        </>
+      ) : (
+        <>
+          <span className={`text-xs font-bold shrink-0 ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`}>
+            {player.credits}
+          </span>
+          <div className="flex-1 text-right min-w-0">
+            <p className="font-semibold text-on-surface text-xs truncate">{player.name}</p>
+            <span className="text-[10px] text-on-surface-variant font-medium">{ROLE_LABELS[player.role]}</span>
+          </div>
+          <div
+            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all ${
+              isSelected ? 'bg-primary text-white' : 'border-2 border-surface-dim'
+            }`}
+          >
+            {isSelected && <Check size={12} strokeWidth={3} />}
+          </div>
+        </>
+      )}
+    </button>
   );
 }
