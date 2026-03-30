@@ -186,7 +186,7 @@ export function CreateTeamPage() {
     };
     try {
       await saveFantasyTeam(team);
-      navigate(`/group/${groupId}/match/${matchId}`);
+      navigate(`/group/${groupId}/match/${matchId}`, { replace: true });
     } catch (e) {
       console.error('Failed to save team:', e);
       setSaving(false);
@@ -199,8 +199,8 @@ export function CreateTeamPage() {
     } else if (step === 'captain') {
       setStep('select');
     } else {
-      // Back from select → match detail
-      navigate(`/group/${groupId}/match/${matchId}`);
+      // Back from select → match detail (replace to avoid history loop)
+      navigate(`/group/${groupId}/match/${matchId}`, { replace: true });
     }
   }
 

@@ -386,7 +386,7 @@ export function MatchDetailPage() {
 
   return (
     <div className="min-h-screen bg-surface">
-      <Header variant="page" title={`Match #${matchId}`} showBack />
+      <Header variant="page" title={`Match #${matchId}`} showBack backTo={`/group/${groupId}`} />
       <PullToRefresh onRefresh={handleRefresh}>
 
       <main className="px-6 pb-8 max-w-2xl mx-auto">
