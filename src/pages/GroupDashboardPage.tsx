@@ -89,6 +89,7 @@ export function GroupDashboardPage() {
         variant="page"
         title={group.name}
         showBack
+        backTo="/"
         rightAction={
           isAdmin ? (
             <button
