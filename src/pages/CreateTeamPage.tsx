@@ -186,6 +186,7 @@ export function CreateTeamPage() {
     };
     try {
       await saveFantasyTeam(team);
+      await useStore.getState().fetchFromSupabase();
       navigate(`/group/${groupId}/match/${matchId}`, { replace: true });
     } catch (e) {
       console.error('Failed to save team:', e);
