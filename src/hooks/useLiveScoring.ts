@@ -18,6 +18,7 @@ interface UseLiveScoringOptions {
   enabled: boolean;
   isAdmin: boolean;
   authUserId?: string;
+  onMatchComplete?: (scores: TeamScore[]) => void;
 }
 
 interface MatchScoreInfo {
@@ -136,6 +137,7 @@ export function useLiveScoring({
   enabled,
   isAdmin,
   authUserId,
+  onMatchComplete,
 }: UseLiveScoringOptions): UseLiveScoringResult {
   const [teamScores, setTeamScores] = useState<TeamScore[]>([]);
   const [playerStats, setPlayerStats] = useState<Map<string, PlayerStats>>(new Map());
@@ -253,6 +255,12 @@ export function useLiveScoring({
 
       setMatchScore(score);
       setLastUpdated(Date.now());
+
+      // Auto-finalize when match is complete — pass latest scores
+      if (score.status === 'Complete' && onMatchComplete) {
+        const { scores: latestScores } = calculateScores(stats, teamsRef.current);
+        onMatchComplete(latestScores);
+      }
     } catch (e: any) {
       console.error('API refresh error:', e);
       // Silently ignore rate-limit (429) errors — cached scores are still valid
@@ -263,7 +271,7 @@ export function useLiveScoring({
     } finally {
       setIsRefreshingFromApi(false);
     }
-  }, [cricbuzzMatchId, matchId, enabled, authUserId, calculateScores]);
+  }, [cricbuzzMatchId, matchId, enabled, authUserId, calculateScores, onMatchComplete]);
 
   // On mount: load from cache (everyone)
   useEffect(() => {

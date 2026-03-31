@@ -65,6 +65,46 @@ export function MatchDetailPage() {
     enabled: matchStarted && allTeams.length > 0,
     isAdmin: !!isAdmin,
     authUserId: authUser?.id,
+    onMatchComplete: useCallback(async (finalScores: { userId: string; totalPoints: number }[]) => {
+      // Auto-finalize: only if admin, no existing results, and we have teams
+      if (!isAdmin || hasResults || allTeams.length === 0 || !groupId) return;
+      try {
+        const memberCount = group!.members.length;
+        const entryAmt = group!.entryAmount;
+        const payouts = calculatePayouts(memberCount, entryAmt);
+
+        // Rank teams by their final scores
+        const teamsWithPoints = allTeams
+          .map((t) => {
+            const score = finalScores.find((s) => s.userId === t.userId);
+            return { userId: t.userId, points: score?.totalPoints ?? 0 };
+          })
+          .sort((a, b) => b.points - a.points);
+
+        const membersWithTeams = teamsWithPoints.map((t, i) => ({
+          userId: t.userId,
+          rank: i + 1,
+        }));
+
+        const membersWithoutTeams = group!.members
+          .filter((m) => !membersWithTeams.find((t) => t.userId === m.id))
+          .map((m, i) => ({
+            userId: m.id,
+            rank: membersWithTeams.length + i + 1,
+          }));
+
+        const allRanked = [...membersWithTeams, ...membersWithoutTeams];
+        const rankedResults = allRanked.map((r) => {
+          const payout = payouts[r.rank - 1] || 0;
+          return { userId: r.userId, rank: r.rank, payout, netAmount: payout - entryAmt };
+        });
+
+        await submitResults(groupId, matchId, rankedResults);
+        console.log('Auto-finalized match results');
+      } catch (e) {
+        console.error('Auto-finalize failed:', e);
+      }
+    }, [isAdmin, hasResults, allTeams, groupId, group, matchId, submitResults]),
   });
 
   // Cooldown for Update Scores button (30 seconds)
